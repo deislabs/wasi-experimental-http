@@ -1,0 +1,17 @@
+[package]
+name = "wasi-experimental-http"
+version = "0.1.0"
+authors = ["Radu Matei <radu.matei@microsoft.com>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "1.0"
+futures = "0.3"
+http = "0.2"
+# hyper = {version = "0.14", features = ["full"]}
+reqwest = { version = "0.11", default-features = true, features = ["json", "blocking"] }
+tokio = { version = "1.1", features = ["full"] }
+wasmtime = "0.22"
+wasmtime-wasi = "0.22"
+wasi-common = "0.22"
+# wasi = "0.10.2+wasi-snapshot-preview1"
