@@ -8,7 +8,9 @@ const START_FN: &str = "_start";
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let instance = create_instance("tests/simple.wasm".to_string())?;
+    let instance = create_instance(
+        "tests/simple/target/wasm32-wasi/debug/simple_wasi_http_tests.wasm".to_string(),
+    )?;
     run_start(&instance)
 }
 

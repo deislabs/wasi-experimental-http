@@ -8,20 +8,15 @@ fn main() {
 }
 
 fn cargo_build_example(dir: String, example: String) {
-    let input = format!("{}/{}.rs", dir, example);
-    let output = format!("{}/{}.wasm", dir, example);
+    let proj = format!("{}/{}/Cargo.toml", dir, example);
 
-    // println!("cargo:rerun-if-changed={}", input);
-
-    let mut cmd = process::Command::new("rustc");
-
+    let mut cmd = process::Command::new("cargo");
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
-    cmd.arg("--target")
+    cmd.arg("build")
+        .arg("--target")
         .arg("wasm32-wasi")
-        .arg(input)
-        .arg("-o")
-        .arg(output)
-        .arg("--crate-type=cdylib");
+        .arg("--manifest-path")
+        .arg(proj);
     cmd.output().unwrap();
 }
