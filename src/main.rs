@@ -11,6 +11,7 @@ async fn main() -> Result<(), Error> {
     let instance = create_instance(
         "tests/simple/target/wasm32-wasi/debug/simple_wasi_http_tests.wasm".to_string(),
     )?;
+    // let instance = create_instance("crates/as/build/optimized.wasm".to_string())?;
     run_start(&instance)
 }
 
