@@ -1,0 +1,12 @@
+[package]
+name = "simple-wasi-http-tests"
+version = "0.1.0"
+authors = ["Radu Matei <radu.matei@microsoft.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+http = "0.2"
+wasi-http = { path = "../../crates/wasi-http" }
