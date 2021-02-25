@@ -18,7 +18,8 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
               headers_len_ptr: u32,
               body_written_ptr: u32,
               headers_written_ptr: u32,
-              headers_res_ptr: u32|
+              headers_res_ptr: u32,
+              status_code_ptr: u32|
               -> u32 {
             let memory = match caller.get_export(MEMORY) {
                 Some(Extern::Memory(mem)) => mem,
@@ -44,6 +45,8 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             let client = Client::builder().build().unwrap();
             let res = block_on(client.request(Method::GET, &url).headers(headers).send()).unwrap();
             let hs = wasi_experimental_http::header_map_to_string(res.headers()).unwrap();
+            let status = res.status().as_u16();
+
             // TODO
             // This should read a the response as a byte array.
             let res = block_on(res.text()).unwrap();
@@ -59,8 +62,13 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             .unwrap();
 
             unsafe {
+                // write the headers response pointer
                 let tmp_ptr = memory.data_ptr().offset(headers_res_ptr as isize) as *mut u32;
                 *tmp_ptr = headers_res as u32;
+
+                // write the status code pointer
+                let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u32;
+                *status_tmp_ptr = status as u32;
             }
             write(&res.as_bytes().to_vec(), body_written_ptr, memory, alloc).unwrap() as u32
         },

@@ -1,18 +1,19 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::Error;
-use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response};
+use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response, StatusCode};
 
 pub fn request<T: Sized>(reqq: Request<T>) -> Result<Response<Vec<u8>>, Error> {
     let url = reqq.uri().to_string();
     let headers = header_map_to_string(reqq.headers())?;
 
-    let (body, headers) = unsafe { raw_request(&url, &headers) };
-    let mut res = Response::builder();
+    let (body, headers, status_code) = unsafe { raw_request(&url, &headers) };
+    let mut res = Response::builder().status(StatusCode::from_u16(status_code)?);
     append_headers(
         res.headers_mut().unwrap(),
         std::str::from_utf8(&headers)?.to_string(),
     )?;
+
     Ok(res.body(body)?)
 }
 
@@ -49,7 +50,7 @@ pub fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(),
 /// Transform the Rust `String` representing the URL into a pointer and length,
 /// call the runtime's `wasi_experimental_http::req`, read the response
 /// from the memory and return it as a Rust `String`.
-unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>) {
+unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>, u16) {
     let url_len_ptr = &(url.len() as u32) as *const u32;
     let url_ptr = url.as_bytes().as_ptr() as *mut u32;
     let headers_len_ptr = &(headers.len() as u32) as *const u32;
@@ -58,6 +59,7 @@ unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>) {
     let body_written_ptr = raw_ptr();
     let headers_written_ptr = raw_ptr();
     let headers_res_ptr = raw_ptr();
+    let status_code_ptr = raw_ptr();
     let res_ptr = req(
         url_ptr,
         url_len_ptr,
@@ -66,6 +68,7 @@ unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>) {
         body_written_ptr,
         headers_written_ptr,
         headers_res_ptr,
+        status_code_ptr,
     );
     let bytes_written = *body_written_ptr as usize;
     let headers_written = *headers_written_ptr as usize;
@@ -77,6 +80,7 @@ unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>) {
             headers_written,
             headers_written,
         ),
+        *status_code_ptr as u16,
     )
 }
 
@@ -91,6 +95,7 @@ extern "C" {
         body_written_ptr: *const u32,
         headers_written_ptr: *const u32,
         headers_res_ptr: *const u32,
+        status_code_ptr: *const u32,
     ) -> *mut u8;
 }
 
