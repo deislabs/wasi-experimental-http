@@ -1,6 +1,7 @@
 use anyhow::Error;
 use futures::executor::block_on;
 use reqwest::{Client, Method};
+use wasi_experimental_http;
 use wasmtime::*;
 
 const ALLOC_FN: &str = "alloc";
@@ -10,14 +11,30 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
     linker.func(
         "wasi_experimental_http",
         "req",
-        move |caller: Caller<'_>, url_ptr: u32, url_len_ptr: u32, written_ptr: u32| -> u32 {
+        move |caller: Caller<'_>,
+              url_ptr: u32,
+              url_len_ptr: u32,
+              headers_ptr: u32,
+              headers_len_ptr: u32,
+              body_written_ptr: u32,
+              headers_written_ptr: u32,
+              headers_res_ptr: u32|
+              -> u32 {
             let memory = match caller.get_export(MEMORY) {
                 Some(Extern::Memory(mem)) => mem,
                 _ => panic!("cannot find memory"),
             };
+            let alloc = match caller.get_export(ALLOC_FN) {
+                Some(Extern::Func(func)) => func,
+                _ => panic!(),
+            };
 
             let url = unsafe { string_from_memory(&memory, url_ptr, url_len_ptr).unwrap() };
             println!("wasi_experimental_http::req: URL: {}", url);
+
+            let headers =
+                unsafe { string_from_memory(&memory, headers_ptr, headers_len_ptr).unwrap() };
+            let headers = wasi_experimental_http::string_to_header_map(headers).unwrap();
 
             // TODO
             // We probably need separate methods for blocking and non-blocking
@@ -25,12 +42,27 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             // let res = reqwest::blocking::get(&url).unwrap().text().unwrap();
 
             let client = Client::builder().build().unwrap();
-            let res = block_on(client.request(Method::GET, &url).send()).unwrap();
+            let res = block_on(client.request(Method::GET, &url).headers(headers).send()).unwrap();
+            let hs = wasi_experimental_http::header_map_to_string(res.headers()).unwrap();
+            // TODO
+            // This should read a the response as a byte array.
             let res = block_on(res.text()).unwrap();
 
             println!("wasi_experimental_http: response: {}", res);
 
-            write_guest_memory(&res.as_bytes().to_vec(), written_ptr, caller).unwrap() as u32
+            let headers_res = write(
+                &hs.as_bytes().to_vec(),
+                headers_written_ptr,
+                memory.clone(),
+                alloc.clone(),
+            )
+            .unwrap();
+
+            unsafe {
+                let tmp_ptr = memory.data_ptr().offset(headers_res_ptr as isize) as *mut u32;
+                *tmp_ptr = headers_res as u32;
+            }
+            write(&res.as_bytes().to_vec(), body_written_ptr, memory, alloc).unwrap() as u32
         },
     )?;
 
@@ -76,30 +108,13 @@ unsafe fn string_from_memory(
 
 /// Write a bytes array into the instance's linear memory
 /// and return the offset relative to the module's memory.
-fn write_guest_memory(bytes: &Vec<u8>, written: u32, caller: Caller<'_>) -> Result<isize, Error> {
-    // Get the "memory" export of the module.
-    // If the module does not export it, just panic,
-    // since we are not going to be able to copy the model and image.
-    let memory = match caller.get_export(MEMORY) {
-        Some(Extern::Memory(mem)) => mem,
-        _ => return Err(Error::msg("cannot find memory")),
-    };
-
-    // The module is not using any bindgen libraries, so it should export
-    // its own alloc function.
-    //
-    // Get the guest's exported alloc function, and call it with the
-    // length of the byte array we are trying to copy.
-    // The result is an offset relative to the module's linear memory, which is
-    // used to copy the bytes into the module's memory.
-    // Then, return the offset.
-
-    let alloc = match caller.get_export(ALLOC_FN) {
-        Some(Extern::Func(func)) => func,
-        _ => return Err(Error::msg("cannot find alloc function")),
-    };
+fn write(
+    bytes: &Vec<u8>,
+    bytes_written_ptr: u32,
+    memory: Memory,
+    alloc: Func,
+) -> Result<isize, Error> {
     let alloc_result = alloc.call(&vec![Val::from(bytes.len() as i32)])?;
-
     let guest_ptr_offset = match alloc_result
         .get(0)
         .expect("expected the result of the allocation to have one value")
@@ -113,7 +128,7 @@ fn write_guest_memory(bytes: &Vec<u8>, written: u32, caller: Caller<'_>) -> Resu
 
         // Get the offsite to `written` in the module's memory and set its value
         // to the number of body bytes written.
-        let written_ptr = memory.data_ptr().offset(written as isize) as *mut u32;
+        let written_ptr = memory.data_ptr().offset(bytes_written_ptr as isize) as *mut u32;
         *written_ptr = bytes.len() as u32;
         println!(
             "wasi_experimental_http::write_guest_memory:: written {} bytes",

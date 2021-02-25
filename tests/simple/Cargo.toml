@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 http = "0.2"
-wasi-http = { path = "../../crates/wasi-http" }
+wasi-experimental-http = { path = "../../crates/wasi-experimental-http" }

@@ -1,6 +1,6 @@
 use anyhow::Error;
 use std::time::Instant;
-use wasi_experimental_http::link_http;
+use wasi_experimental_http_wasmtime::link_http;
 use wasmtime::*;
 use wasmtime_wasi::{Wasi, WasiCtxBuilder};
 
@@ -8,9 +8,8 @@ const START_FN: &str = "_start";
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let instance = create_instance(
-        "tests/simple/target/wasm32-wasi/debug/simple_wasi_http_tests.wasm".to_string(),
-    )?;
+    let instance =
+        create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
     // let instance = create_instance("crates/as/build/optimized.wasm".to_string())?;
     run_start(&instance)
 }
