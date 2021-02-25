@@ -1,8 +1,9 @@
 use anyhow::Error;
 use std::time::Instant;
+use wasi_cap_std_sync::WasiCtxBuilder;
 use wasi_experimental_http_wasmtime::link_http;
 use wasmtime::*;
-use wasmtime_wasi::{Wasi, WasiCtxBuilder};
+use wasmtime_wasi::Wasi;
 
 const START_FN: &str = "_start";
 
