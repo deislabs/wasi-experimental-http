@@ -1,5 +1,5 @@
 [package]
-name = "wasi-experimental-http-wasmtime-sample"
+name = "wasi-experimental-http-wasmtime"
 version = "0.1.0"
 authors = ["Radu Matei <radu.matei@microsoft.com>"]
 edition = "2018"
@@ -13,12 +13,4 @@ tokio = { version = "1.1", features = ["full"] }
 wasmtime = "0.22"
 wasmtime-wasi = "0.22"
 wasi-common = "0.22"
-wasi-experimental-http = {path = "crates/wasi-experimental-http"}
-wasi-experimental-http-wasmtime = {path = "crates/wasi-experimental-http-wasmtime"}
-
-[workspace]
-members = [
-    "crates/wasi-experimental-http",
-    "crates/wasi-experimental-http-wasmtime",
-    "tests/simple"
-]
+wasi-experimental-http = {path = "../wasi-experimental-http"}
