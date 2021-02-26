@@ -37,13 +37,30 @@ pub extern "C" fn _start() {
 }
 ```
 
-Build the module using the `wasm32-wasi` target, then assuming the runtime
-supports this library (currently it has to be built on top of Wasmtime), the
-module can be instantiated, and the runtime can send the request and write the
-response back to the guest module:
+Build the module using the `wasm32-wasi` target, then follow the next section to
+update a Wasmtime runtime with the experimental HTTP support.
+
+### Adding support to a Wasmtime runtime
+
+The easiest way to add support is by using the
+[Wasmtime linker](https://docs.rs/wasmtime/0.23.0/wasmtime/struct.Linker.html):
+
+```rust
+let store = Store::default();
+let mut linker = Linker::new(&store);
+let wasi = Wasi::new(&store, ctx);
+
+// link the WASI core functions
+wasi.add_to_linker(&mut linker)?;
+
+// link the experimental HTTP support
+wasi_experimental_http_wasmtime::link_http(&mut linker)?;
+```
+
+Then, executing the module above will send the HTTP request and write the
+response:
 
 ```
-$ cargo run
 wasi_experimental_http::data_from_memory:: length: 29
 wasi_experimental_http::data_from_memory:: length: 41
 wasi_experimental_http::data_from_memory:: length: 4
@@ -61,23 +78,7 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 }
 {"args":{},"data":"Testing with a request body. Does this actually work?","files":{},"form":{},"headers":{"x-forwarded-proto":"https","x-forwarded-port":"443","host":"postman-echo.com","x-amzn-trace-id":"Root=1-60393e67-02d1c8033bcf4f1e74a4523e","content-length":"53","content-type":"text/plain","abc":"def","accept":"*/*"},"json":null,"url":"https://postman-echo.com/post"}
 "200 OK"
-```
 
-### Adding support to a Wasmtime runtime
-
-The easiest way to add support is by using the
-[Wasmtime linker](https://docs.rs/wasmtime/0.23.0/wasmtime/struct.Linker.html):
-
-```rust
-let store = Store::default();
-let mut linker = Linker::new(&store);
-let wasi = Wasi::new(&store, ctx);
-
-// link the WASI core functions
-wasi.add_to_linker(&mut linker)?;
-
-// link the experimental HTTP support
-wasi_experimental_http_wasmtime::link_http(&mut linker)?;
 ```
 
 Note that the Wasmtime version currently supported is
