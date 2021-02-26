@@ -46,13 +46,7 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             let res = block_on(client.request(Method::GET, &url).headers(headers).send()).unwrap();
             let hs = wasi_experimental_http::header_map_to_string(res.headers()).unwrap();
             let status = res.status().as_u16();
-
-            // TODO
-            // This should read a the response as a byte array.
-            let res = block_on(res.text()).unwrap();
-
-            println!("wasi_experimental_http: response: {}", res);
-
+            let res = block_on(res.bytes()).unwrap();
             let headers_res = write(
                 &hs.as_bytes().to_vec(),
                 headers_written_ptr,
@@ -70,7 +64,7 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
                 let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u32;
                 *status_tmp_ptr = status as u32;
             }
-            write(&res.as_bytes().to_vec(), body_written_ptr, memory, alloc).unwrap() as u32
+            write(&res.to_vec(), body_written_ptr, memory, alloc).unwrap() as u32
         },
     )?;
 

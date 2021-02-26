@@ -11,5 +11,5 @@ pub extern "C" fn _start() {
     let str = std::str::from_utf8(&res.body()).unwrap().to_string();
     println!("{:#?}", res.headers());
     println!("{}", str);
-    println!("{:#?}", res.status());
+    println!("{:#?}", res.status().to_string());
 }
