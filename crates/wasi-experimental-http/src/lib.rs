@@ -3,11 +3,11 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::Error;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response, StatusCode};
 
-pub fn request<T: Sized>(reqq: Request<T>) -> Result<Response<Vec<u8>>, Error> {
+pub fn request(reqq: Request<Option<Vec<u8>>>) -> Result<Response<Vec<u8>>, Error> {
     let url = reqq.uri().to_string();
     let headers = header_map_to_string(reqq.headers())?;
-
-    let (body, headers, status_code) = unsafe { raw_request(&url, &headers) };
+    let (body, headers, status_code) =
+        unsafe { raw_request(&url, reqq.method().to_string(), &headers, reqq.body()) };
     let mut res = Response::builder().status(StatusCode::from_u16(status_code)?);
     append_headers(
         res.headers_mut().unwrap(),
@@ -39,7 +39,7 @@ pub fn string_to_header_map(hm: String) -> Result<HeaderMap, Error> {
     Ok(headers)
 }
 
-pub fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Error> {
+fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Error> {
     let hm: HashMap<String, String> = serde_json::from_str(&source)?;
     for (k, v) in hm.iter() {
         res_headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
@@ -50,19 +50,44 @@ pub fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(),
 /// Transform the Rust `String` representing the URL into a pointer and length,
 /// call the runtime's `wasi_experimental_http::req`, read the response
 /// from the memory and return it as a Rust `String`.
-unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>, u16) {
+unsafe fn raw_request(
+    url: &String,
+    method: String,
+    headers: &String,
+    body: &Option<Vec<u8>>,
+) -> (Vec<u8>, Vec<u8>, u16) {
+    let body = match body {
+        Some(b) => b.clone(),
+        None => Vec::new(),
+    };
+
+    let req_body_ptr = body.as_ptr() as *mut u32;
+    let req_body_len_ptr = &(body.len() as u32) as *const u32;
+
+    // should the HTTP method be an integer?
+    let method_len_ptr = &(method.len() as u32) as *const u32;
+    let method_ptr = method.as_bytes().as_ptr() as *mut u32;
+
     let url_len_ptr = &(url.len() as u32) as *const u32;
     let url_ptr = url.as_bytes().as_ptr() as *mut u32;
+
     let headers_len_ptr = &(headers.len() as u32) as *const u32;
     let headers_ptr = headers.as_bytes().as_ptr() as *mut u32;
 
     let body_written_ptr = raw_ptr();
+
     let headers_written_ptr = raw_ptr();
     let headers_res_ptr = raw_ptr();
+
     let status_code_ptr = raw_ptr();
+
     let res_ptr = req(
         url_ptr,
         url_len_ptr,
+        method_ptr,
+        method_len_ptr,
+        req_body_ptr,
+        req_body_len_ptr,
         headers_ptr,
         headers_len_ptr,
         body_written_ptr,
@@ -87,9 +112,13 @@ unsafe fn raw_request(url: &String, headers: &String) -> (Vec<u8>, Vec<u8>, u16)
 /// Import `wasi_experimental_http` from the runtime.
 #[link(wasm_import_module = "wasi_experimental_http")]
 extern "C" {
-    pub fn req(
+    fn req(
         url_ptr: *const u32,
         url_len_ptr: *const u32,
+        method_ptr: *const u32,
+        method_len_ptr: *const u32,
+        req_body_ptr: *const u32,
+        req_body_len_ptr: *const u32,
         headers_ptr: *const u32,
         headers_len_ptr: *const u32,
         body_written_ptr: *const u32,

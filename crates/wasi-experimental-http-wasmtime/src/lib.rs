@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Error;
 use futures::executor::block_on;
 use reqwest::{Client, Method};
@@ -14,6 +16,10 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
         move |caller: Caller<'_>,
               url_ptr: u32,
               url_len_ptr: u32,
+              method_ptr: u32,
+              method_len_ptr: u32,
+              req_body_ptr: u32,
+              req_body_len_ptr: u32,
               headers_ptr: u32,
               headers_len_ptr: u32,
               body_written_ptr: u32,
@@ -37,13 +43,25 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
                 unsafe { string_from_memory(&memory, headers_ptr, headers_len_ptr).unwrap() };
             let headers = wasi_experimental_http::string_to_header_map(headers).unwrap();
 
+            let method =
+                unsafe { string_from_memory(&memory, method_ptr, method_len_ptr).unwrap() };
+
+            let req_body = unsafe { vec_from_memory(&memory, req_body_ptr, req_body_len_ptr) };
+
             // TODO
             // We probably need separate methods for blocking and non-blocking
             // versions of the HTTP client.
             // let res = reqwest::blocking::get(&url).unwrap().text().unwrap();
 
             let client = Client::builder().build().unwrap();
-            let res = block_on(client.request(Method::GET, &url).headers(headers).send()).unwrap();
+            let res = block_on(
+                client
+                    .request(Method::from_str(&method).unwrap(), &url)
+                    .headers(headers)
+                    .body(req_body)
+                    .send(),
+            )
+            .unwrap();
             let hs = wasi_experimental_http::header_map_to_string(res.headers()).unwrap();
             let status = res.status().as_u16();
             let res = block_on(res.bytes()).unwrap();
@@ -57,11 +75,13 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
 
             unsafe {
                 // write the headers response pointer
-                let tmp_ptr = memory.data_ptr().offset(headers_res_ptr as isize) as *mut u32;
+                let tmp_ptr =
+                    memory.clone().data_ptr().offset(headers_res_ptr as isize) as *mut u32;
                 *tmp_ptr = headers_res as u32;
 
                 // write the status code pointer
-                let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u32;
+                let status_tmp_ptr =
+                    memory.clone().data_ptr().offset(status_code_ptr as isize) as *mut u32;
                 *status_tmp_ptr = status as u32;
             }
             write(&res.to_vec(), body_written_ptr, memory, alloc).unwrap() as u32
@@ -85,6 +105,11 @@ unsafe fn data_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> (Opt
         .and_then(|arr| arr.get(..len as u32 as usize));
 
     return (data, len);
+}
+
+unsafe fn vec_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> Vec<u8> {
+    let (data, _) = data_from_memory(&memory, data_ptr, len_ptr);
+    data.unwrap().to_vec()
 }
 
 /// Read a string from the instance's `memory`  of length `len_ptr`
