@@ -3,11 +3,11 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::Error;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response, StatusCode};
 
-pub fn request(reqq: Request<Option<Vec<u8>>>) -> Result<Response<Vec<u8>>, Error> {
-    let url = reqq.uri().to_string();
-    let headers = header_map_to_string(reqq.headers())?;
+pub fn request(req: Request<Option<Vec<u8>>>) -> Result<Response<Vec<u8>>, Error> {
+    let url = req.uri().to_string();
+    let headers = header_map_to_string(req.headers())?;
     let (body, headers, status_code) =
-        unsafe { raw_request(&url, reqq.method().to_string(), &headers, reqq.body()) };
+        unsafe { raw_request(&url, req.method().to_string(), &headers, req.body())? };
     let mut res = Response::builder().status(StatusCode::from_u16(status_code)?);
     append_headers(
         res.headers_mut().unwrap(),
@@ -55,7 +55,7 @@ unsafe fn raw_request(
     method: String,
     headers: &String,
     body: &Option<Vec<u8>>,
-) -> (Vec<u8>, Vec<u8>, u16) {
+) -> Result<(Vec<u8>, Vec<u8>, u16), Error> {
     let body = match body {
         Some(b) => b.clone(),
         None => Vec::new(),
@@ -64,7 +64,6 @@ unsafe fn raw_request(
     let req_body_ptr = body.as_ptr() as *mut u32;
     let req_body_len_ptr = &(body.len() as u32) as *const u32;
 
-    // should the HTTP method be an integer?
     let method_len_ptr = &(method.len() as u32) as *const u32;
     let method_ptr = method.as_bytes().as_ptr() as *mut u32;
 
@@ -74,6 +73,7 @@ unsafe fn raw_request(
     let headers_len_ptr = &(headers.len() as u32) as *const u32;
     let headers_ptr = headers.as_bytes().as_ptr() as *mut u32;
 
+    let body_res_ptr = raw_ptr();
     let body_written_ptr = raw_ptr();
 
     let headers_written_ptr = raw_ptr();
@@ -81,7 +81,10 @@ unsafe fn raw_request(
 
     let status_code_ptr = raw_ptr();
 
-    let res_ptr = req(
+    let err_ptr = raw_ptr();
+    let err_len_ptr = raw_ptr();
+
+    let err = req(
         url_ptr,
         url_len_ptr,
         method_ptr,
@@ -90,23 +93,38 @@ unsafe fn raw_request(
         req_body_len_ptr,
         headers_ptr,
         headers_len_ptr,
+        body_res_ptr,
         body_written_ptr,
         headers_written_ptr,
         headers_res_ptr,
         status_code_ptr,
+        err_ptr,
+        err_len_ptr,
     );
+
+    if err != 0 {
+        println!("error code: {}", err);
+        let bytes = Vec::from_raw_parts(
+            *err_ptr as *mut u8,
+            *err_len_ptr as usize,
+            *err_len_ptr as usize,
+        );
+        let msg = std::str::from_utf8(bytes.as_slice())?.to_string();
+        return Err(Error::msg(msg));
+    };
+
     let bytes_written = *body_written_ptr as usize;
     let headers_written = *headers_written_ptr as usize;
 
-    (
-        Vec::from_raw_parts(res_ptr, bytes_written, bytes_written),
+    Ok((
+        Vec::from_raw_parts(*body_res_ptr as *mut u8, bytes_written, bytes_written),
         Vec::from_raw_parts(
             *headers_res_ptr as *mut u8,
             headers_written,
             headers_written,
         ),
         *status_code_ptr as u16,
-    )
+    ))
 }
 
 /// Import `wasi_experimental_http` from the runtime.
@@ -121,11 +139,14 @@ extern "C" {
         req_body_len_ptr: *const u32,
         headers_ptr: *const u32,
         headers_len_ptr: *const u32,
+        body_res_ptr: *const u32,
         body_written_ptr: *const u32,
         headers_written_ptr: *const u32,
         headers_res_ptr: *const u32,
         status_code_ptr: *const u32,
-    ) -> *mut u8;
+        err_ptr: *const u32,
+        err_len_ptr: *const u32,
+    ) -> u32;
 }
 
 /// Allocate memory into the module's linear memory
