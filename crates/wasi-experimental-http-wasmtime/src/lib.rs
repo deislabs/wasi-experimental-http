@@ -30,6 +30,9 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
               err_ptr: u32,
               err_len_ptr: u32|
               -> u32 {
+            // Get the module's memory and allocation function.
+            // If either is not found, the runtime cannot write any response
+            // data, so the execution cannot continue.
             let memory = match caller.get_export(MEMORY) {
                 Some(Extern::Memory(mem)) => mem,
                 _ => {
@@ -57,6 +60,7 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
                 }
             };
 
+            // Get the URL, headers, method, and request body from the module's memory.
             let (url, headers, method, req_body) = unsafe {
                 http_parts_from_memory(
                     &memory,
@@ -77,6 +81,7 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             // versions of the HTTP client.
             // let res = reqwest::blocking::get(&url).unwrap().text().unwrap();
 
+            // Make the HTTP request using `reqwest`.
             let client = Client::builder().build().unwrap();
             let res = match block_on(
                 client
@@ -98,6 +103,7 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
                 }
             };
 
+            // Write the HTTP response back to the module's memory.
             unsafe {
                 match write_http_response_to_memory(
                     res,
@@ -129,6 +135,8 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
     Ok(())
 }
 
+/// Get the URL, method, request body, and headers from the
+/// module's memory.
 unsafe fn http_parts_from_memory(
     memory: &Memory,
     url_ptr: u32,
@@ -150,6 +158,7 @@ unsafe fn http_parts_from_memory(
     Ok((url, headers, method, req_body))
 }
 
+/// Write the response data to the module's memory.
 unsafe fn write_http_response_to_memory(
     res: Response,
     memory: Memory,
@@ -163,6 +172,7 @@ unsafe fn write_http_response_to_memory(
     let hs = wasi_experimental_http::header_map_to_string(res.headers())?;
     let status = res.status().as_u16();
     let res = block_on(res.bytes())?;
+    // Write the response headers.
     write(
         &hs.as_bytes().to_vec(),
         headers_res_ptr,
@@ -171,10 +181,11 @@ unsafe fn write_http_response_to_memory(
         &alloc,
     )?;
 
-    // write the status code pointer
+    // Write the status code pointer.
     let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u32;
     *status_tmp_ptr = status as u32;
 
+    // Write the response body.
     write(
         &res.to_vec(),
         body_res_ptr,
@@ -186,6 +197,7 @@ unsafe fn write_http_response_to_memory(
     Ok(())
 }
 
+/// Write error details into the module's memory and return.
 fn err(
     msg: String,
     memory: Option<&Memory>,
@@ -209,8 +221,7 @@ fn err(
         memory,
         alloc,
     ) {
-        Ok(_) => return err_code,
-        Err(_) => return err_code,
+        _ => return err_code,
     }
 }
 
@@ -230,8 +241,10 @@ unsafe fn data_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> (Opt
     return (data, len);
 }
 
+/// Get a `Vec<u8>` from the module's memory.
 unsafe fn vec_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> Vec<u8> {
     let (data, _) = data_from_memory(&memory, data_ptr, len_ptr);
+    // Normally, this should never panic.
     data.unwrap_or_default().to_vec()
 }
 
@@ -254,7 +267,7 @@ unsafe fn string_from_memory(
     Ok(String::from(str))
 }
 
-/// Write a bytes array into the instance's linear memory
+/// Write a byte array into the instance's linear memory
 /// and return the offset relative to the module's memory.
 fn write(
     bytes: &Vec<u8>,
@@ -284,6 +297,7 @@ fn write(
             *written_ptr
         );
 
+        // Write result pointer.
         let res_ptr = memory.data_ptr().offset(ptr as isize) as *mut u32;
         *res_ptr = guest_ptr_offset as u32;
     }

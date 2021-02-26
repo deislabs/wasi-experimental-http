@@ -1,8 +1,9 @@
-use std::{collections::HashMap, str::FromStr};
-
 use anyhow::Error;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response, StatusCode};
+use std::{collections::HashMap, str::FromStr};
 
+/// Create an HTTP request and get an HTTP response.
+/// Currently, both the request and response bodies have to be `Vec<u8>`.
 pub fn request(req: Request<Option<Vec<u8>>>) -> Result<Response<Vec<u8>>, Error> {
     let url = req.uri().to_string();
     let headers = header_map_to_string(req.headers())?;
@@ -39,6 +40,7 @@ pub fn string_to_header_map(hm: String) -> Result<HeaderMap, Error> {
     Ok(headers)
 }
 
+/// Append a header map string to a mutable http::HeaderMap.
 fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Error> {
     let hm: HashMap<String, String> = serde_json::from_str(&source)?;
     for (k, v) in hm.iter() {
@@ -47,9 +49,10 @@ fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Err
     Ok(())
 }
 
-/// Transform the Rust `String` representing the URL into a pointer and length,
-/// call the runtime's `wasi_experimental_http::req`, read the response
-/// from the memory and return it as a Rust `String`.
+/// Transform an http::Request into raw parts and make an FFI function call
+/// to the underlying WebAssembly runtime.
+/// Note that the runtime MUST support this library, otherwise, the module
+/// will not be instantiated.
 unsafe fn raw_request(
     url: &String,
     method: String,
@@ -60,6 +63,9 @@ unsafe fn raw_request(
         Some(b) => b.clone(),
         None => Vec::new(),
     };
+
+    // Get pointers and lengths from the incoming requests' URL,
+    // method, headers, and body.
 
     let req_body_ptr = body.as_ptr() as *mut u32;
     let req_body_len_ptr = &(body.len() as u32) as *const u32;
@@ -73,6 +79,9 @@ unsafe fn raw_request(
     let headers_len_ptr = &(headers.len() as u32) as *const u32;
     let headers_ptr = headers.as_bytes().as_ptr() as *mut u32;
 
+    // Create raw pointers that the runtime will write information about
+    // the response, headers, status code, and error into.
+
     let body_res_ptr = raw_ptr();
     let body_written_ptr = raw_ptr();
 
@@ -84,6 +93,9 @@ unsafe fn raw_request(
     let err_ptr = raw_ptr();
     let err_len_ptr = raw_ptr();
 
+    // Make a host function call, which will write the required data
+    // in the memory, or return an error code (potentially with some more
+    // error details).
     let err = req(
         url_ptr,
         url_len_ptr,
@@ -102,8 +114,16 @@ unsafe fn raw_request(
         err_len_ptr,
     );
 
+    // If the returned error is not 0, return it.
     if err != 0 {
         println!("error code: {}", err);
+        // Depending on the error, the runtime might have not been able to
+        // actually write any details (if the module didn't export a memory
+        // or alloc function, for example).
+        // TODO
+        // Add an error enum that corresponds to the error code and
+        // print it here, as well as the error details.
+
         let bytes = Vec::from_raw_parts(
             *err_ptr as *mut u8,
             *err_len_ptr as usize,
@@ -116,6 +136,7 @@ unsafe fn raw_request(
     let bytes_written = *body_written_ptr as usize;
     let headers_written = *headers_written_ptr as usize;
 
+    // Return the body, headers, and status code.
     Ok((
         Vec::from_raw_parts(*body_res_ptr as *mut u8, bytes_written, bytes_written),
         Vec::from_raw_parts(
