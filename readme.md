@@ -63,6 +63,26 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 "200 OK"
 ```
 
+### Adding support to a Wasmtime runtime
+
+The easiest way to add support is by using the
+[Wasmtime linker](https://docs.rs/wasmtime/0.23.0/wasmtime/struct.Linker.html):
+
+```rust
+let store = Store::default();
+let mut linker = Linker::new(&store);
+let wasi = Wasi::new(&store, ctx);
+
+// link the WASI core functions
+wasi.add_to_linker(&mut linker)?;
+
+// link the experimental HTTP support
+wasi_experimental_http_wasmtime::link_http(&mut linker)?;
+```
+
+Note that the Wasmtime version currently supported is
+[0.23](https://docs.rs/wasmtime/0.23.0/wasmtime/).
+
 ### Known limitations
 
 - request and response bodies are byte arrays only (Rust `Vec<u8>`).
