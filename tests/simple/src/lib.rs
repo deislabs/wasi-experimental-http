@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use http;
 use wasi_experimental_http;
 
@@ -19,8 +20,8 @@ pub extern "C" fn post() {
         .uri(&url)
         .header("Content-Type", "text/plain")
         .header("abc", "def");
-    let b = b"Testing with a request body. Does this actually work?";
-    let req = req.body(Some(b.to_vec())).unwrap();
+    let b = Bytes::from("Testing with a request body. Does this actually work?");
+    let req = req.body(Some(b)).unwrap();
 
     let res = wasi_experimental_http::request(req).expect("cannot make post request");
     let str = std::str::from_utf8(&res.body()).unwrap().to_string();
