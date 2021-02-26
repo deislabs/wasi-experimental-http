@@ -5,22 +5,22 @@ use wasi_experimental_http_wasmtime::link_http;
 use wasmtime::*;
 use wasmtime_wasi::Wasi;
 
-const START_FN: &str = "_start";
-
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let instance =
         create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
     // let instance = create_instance("crates/as/build/optimized.wasm".to_string())?;
-    run_start(&instance)
+
+    let test_funcs = vec!["get", "post"];
+    run_start(&instance, &test_funcs)
 }
 
 /// Execute the module's `_start` function.
-fn run_start(instance: &Instance) -> Result<(), Error> {
-    let entrypoint = instance
-        .get_func(START_FN)
-        .expect("expected alloc function not found");
-    entrypoint.call(&vec![])?;
+fn run_start(instance: &Instance, test_funcs: &Vec<&str>) -> Result<(), Error> {
+    for func in test_funcs.iter() {
+        let func = instance.get_func(func).expect("cannot find function");
+        func.call(&vec![])?;
+    }
 
     Ok(())
 }
