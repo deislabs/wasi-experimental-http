@@ -3,11 +3,6 @@
 This projects adds experimental and _temporary_ outgoing HTTP support for WASI
 modules. It is currently unstable and incomplete.
 
-### Using this library
-
-We use the `wasi-http` crate (from this repository) and the `http` crate and
-make an HTTP request from the WebAssembly module:
-
 ### Writing a module that makes an HTTP request
 
 We use the `wasi-experimental-http` crate (from this repository) and the `http`
