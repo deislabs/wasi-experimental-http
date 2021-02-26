@@ -1,10 +1,11 @@
 use anyhow::Error;
+use bytes::Bytes;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response, StatusCode};
 use std::{collections::HashMap, str::FromStr};
 
 /// Create an HTTP request and get an HTTP response.
 /// Currently, both the request and response bodies have to be `Vec<u8>`.
-pub fn request(req: Request<Option<Vec<u8>>>) -> Result<Response<Vec<u8>>, Error> {
+pub fn request(req: Request<Option<Bytes>>) -> Result<Response<Bytes>, Error> {
     let url = req.uri().to_string();
     let headers = header_map_to_string(req.headers())?;
     let (body, headers, status_code) =
@@ -15,7 +16,7 @@ pub fn request(req: Request<Option<Vec<u8>>>) -> Result<Response<Vec<u8>>, Error
         std::str::from_utf8(&headers)?.to_string(),
     )?;
 
-    Ok(res.body(body)?)
+    Ok(res.body(Bytes::from(body))?)
 }
 
 // TODO
@@ -57,10 +58,10 @@ unsafe fn raw_request(
     url: &String,
     method: String,
     headers: &String,
-    body: &Option<Vec<u8>>,
+    body: &Option<Bytes>,
 ) -> Result<(Vec<u8>, Vec<u8>, u16), Error> {
     let body = match body {
-        Some(b) => b.clone(),
+        Some(b) => b.to_vec(),
         None => Vec::new(),
     };
 

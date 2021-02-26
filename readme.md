@@ -10,6 +10,7 @@ crate to create an HTTP request from a WebAssembly module, make a host call to
 the runtime using the request, then get a response back:
 
 ```rust
+use bytes::Bytes;
 use http;
 use wasi_experimental_http;
 
@@ -21,8 +22,8 @@ pub extern "C" fn _start() {
         .uri(&url)
         .header("Content-Type", "text/plain")
         .header("abc", "def");
-    let b = b"Testing with a request body. Does this actually work?";
-    let req = req.body(Some(b.to_vec())).unwrap();
+    let b = Bytes::from("Testing with a request body. Does this actually work?");
+    let req = req.body(Some(b)).unwrap();
 
     let res = wasi_experimental_http::request(req).expect("cannot make request");
     let str = std::str::from_utf8(&res.body()).unwrap().to_string();
@@ -81,7 +82,7 @@ Note that the Wasmtime version currently supported is
 
 ### Known limitations
 
-- request and response bodies are byte arrays only (Rust `Vec<u8>`).
+- request and response bodies are [`Bytes`](https://docs.rs/bytes/1.0.1/bytes/).
 - handling headers is currently very inefficient.
 - there are no WITX definitions, which means we have to manually keep the host
   call and guest implementation in sync. Adding WITX definitions could also
