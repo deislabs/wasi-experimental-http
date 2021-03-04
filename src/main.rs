@@ -1,9 +1,8 @@
 use anyhow::Error;
 use std::time::Instant;
-use wasi_cap_std_sync::WasiCtxBuilder;
 use wasi_experimental_http_wasmtime::link_http;
 use wasmtime::*;
-use wasmtime_wasi::Wasi;
+use wasmtime_wasi::{Wasi, WasiCtxBuilder};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -18,25 +17,7 @@ async fn main() -> Result<(), Error> {
         run_tests(&instance, &test_funcs.clone())?;
     }
 
-    // // let instance =
-    // // create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
-    // let instance = create_instance("tests/as/build/optimized.wasm".to_string())?;
-
-    // // let test_funcs = vec!["get", "post"];
-    // let test_funcs = vec!["_start"];
-    // run_tests(&instance, &test_funcs)
-
     Ok(())
-
-    // // let instance =
-    // // create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
-    // let instance = create_instance("tests/as/build/optimized.wasm".to_string())?;
-    // // let instance = create_instance("crates/as/build/optimized.wasm".to_string())?;
-    // // let instance =
-    // //     create_instance("../../misc/as-wasi-http-test/build/optimized.wasm".to_string())?;
-
-    // let test_funcs = vec!["post"];
-    // run_tests(&instance, &test_funcs)
 }
 
 /// Execute the module's `_start` function.

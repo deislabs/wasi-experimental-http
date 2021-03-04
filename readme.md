@@ -1,7 +1,10 @@
 # `wasi-experimental-http`
 
 This projects adds experimental and _temporary_ outgoing HTTP support for WASI
-modules. It is currently unstable and incomplete.
+modules. It is currently unstable and incomplete. This project does not aim to
+replace WASI's native networking and sockets API, but rather provide a temporary
+workaround for guest modules to make outbound HTTP requests until WASI
+stabilizes the networking API.
 
 ### Writing a module that makes an HTTP request
 
