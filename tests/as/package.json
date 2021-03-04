@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "asbuild": "asc index.ts -b build/optimized.wasm --use abort=wasi_abort --debug"
+  },
+  "dependencies": {
+    "as-wasi": "0.2.0",
+    "assemblyscript": "^0.18.12"
+  }
+}
