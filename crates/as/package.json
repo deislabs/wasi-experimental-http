@@ -1,4 +1,7 @@
 {
+  "name": "@deislabs/wasi-experimental-http",
+  "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
     "asbuild": "asc index.ts -b build/optimized.wasm --use abort=wasi_abort --debug"
   },
