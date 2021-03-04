@@ -80,11 +80,41 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 Note that the Wasmtime version currently supported is
 [0.23](https://docs.rs/wasmtime/0.23.0/wasmtime/).
 
+### Sending HTTP requests from AssemblyScript
+
+This repository also contains an AssemblyScript implementation for sending HTTP
+requests:
+
+```typescript
+// @ts-ignore
+import * as wasi from "as-wasi";
+import {
+  Method,
+  RequestBuilder,
+  Response,
+} from "@deislabs/wasi-experimental-http";
+export { alloc } from "@deislabs/wasi-experimental-http";
+
+export function _start_(): void {
+  let body = String.UTF8.encode("testing the body");
+  let res = new RequestBuilder("https://postman-echo.com/post")
+    .header("Content-Type", "text/plain")
+    .method(Method.POST)
+    .body(body)
+    .send();
+  wasi.Console.log(res.status.toString());
+  wasi.Console.log(res.headers);
+  wasi.Console.log(String.UTF8.decode(res.body));
+}
+```
+
 ### Known limitations
 
 - request and response bodies are [`Bytes`](https://docs.rs/bytes/1.0.1/bytes/).
-- handling headers is currently very inefficient.
+- handling headers in Rust is currently very inefficient.
 - there are no WITX definitions, which means we have to manually keep the host
   call and guest implementation in sync. Adding WITX definitions could also
   enable support for other WASI runtimes.
-- the AssemblyScript implementation is currently incomplete.
+- the `alloc` function in AssemblyScript has to be re-exported in order for the
+  runtime to use it. There probably is a decorator or Binaryen setting to avoid
+  removing it, but for now this has to be re-exported.
