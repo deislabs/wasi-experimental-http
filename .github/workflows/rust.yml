@@ -19,4 +19,4 @@ jobs:
     - name: Build
       run: rustup target add wasm32-wasi && cargo build --verbose
     - name: Run simple test
-      run: cargo run
+      run: cargo test --all -- --nocapture

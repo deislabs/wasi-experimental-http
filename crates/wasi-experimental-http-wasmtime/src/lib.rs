@@ -1,8 +1,10 @@
 use anyhow::Error;
+use bytes::Bytes;
 use futures::executor::block_on;
-use http::HeaderMap;
-use reqwest::{Client, Method, Response};
+use http::{HeaderMap, HeaderValue};
+use reqwest::{Client, Method};
 use std::str::FromStr;
+use tokio::runtime::Handle;
 use wasi_experimental_http;
 use wasmtime::*;
 
@@ -61,7 +63,7 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             };
 
             // Get the URL, headers, method, and request body from the module's memory.
-            let (url, headers, method, req_body) = unsafe {
+            let (url, headers, method, req_body) = match unsafe {
                 http_parts_from_memory(
                     &memory,
                     url_ptr,
@@ -73,32 +75,30 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
                     headers_ptr,
                     headers_len_ptr,
                 )
-                .unwrap()
-            };
-
-            // TODO
-            // We probably need separate methods for blocking and non-blocking
-            // versions of the HTTP client.
-            // let res = reqwest::blocking::get(&url).unwrap().text().unwrap();
-
-            // Make the HTTP request using `reqwest`.
-            let client = Client::builder().build().unwrap();
-            let res = match block_on(
-                client
-                    .request(method, &url)
-                    .headers(headers)
-                    .body(req_body)
-                    .send(),
-            ) {
-                Ok(r) => r,
-                Err(e) => {
+            } {
+                Ok(r) => (r.0, r.1, r.2, r.3),
+                Err(_) => {
                     return err(
-                        e.to_string(),
+                        "cannot get HTTP parts from memory".to_string(),
                         Some(&memory),
                         Some(&alloc),
                         err_ptr,
                         err_len_ptr,
-                        2,
+                        4,
+                    )
+                }
+            };
+
+            let (status, headers, body) = match request(url, headers, method, req_body) {
+                Ok(r) => (r.0, r.1, r.2),
+                Err(e) => {
+                    return err(
+                        e.to_string(),
+                        Some(&memory.clone()),
+                        Some(&alloc.clone()),
+                        err_ptr,
+                        err_len_ptr,
+                        3,
                     )
                 }
             };
@@ -106,7 +106,9 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
             // Write the HTTP response back to the module's memory.
             unsafe {
                 match write_http_response_to_memory(
-                    res,
+                    status,
+                    headers,
+                    body,
                     memory.clone(),
                     alloc.clone(),
                     headers_written_ptr,
@@ -135,6 +137,42 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
     Ok(())
 }
 
+fn request(
+    url: String,
+    headers: HeaderMap,
+    method: Method,
+    body: Vec<u8>,
+) -> Result<(u16, HeaderMap<HeaderValue>, Bytes), Error> {
+    match Handle::try_current() {
+        Ok(_) => {
+            println!("wasi_experimental_http::request: tokio runtime available");
+            let client = Client::builder().build().unwrap();
+            let res = block_on(
+                client
+                    .request(method, &url)
+                    .headers(headers)
+                    .body(body)
+                    .send(),
+            )?;
+
+            return Ok((
+                res.status().as_u16(),
+                res.headers().clone(),
+                block_on(res.bytes())?,
+            ));
+        }
+        Err(_) => {
+            println!("wasi_experimental_http::request: no Tokio runtime available");
+            let res = reqwest::blocking::Client::new()
+                .request(method, &url)
+                .headers(headers)
+                .body(body)
+                .send()?;
+            return Ok((res.status().as_u16(), res.headers().clone(), res.bytes()?));
+        }
+    };
+}
+
 /// Get the URL, method, request body, and headers from the
 /// module's memory.
 unsafe fn http_parts_from_memory(
@@ -160,7 +198,9 @@ unsafe fn http_parts_from_memory(
 
 /// Write the response data to the module's memory.
 unsafe fn write_http_response_to_memory(
-    res: Response,
+    status: u16,
+    headers: HeaderMap,
+    res: Bytes,
     memory: Memory,
     alloc: Func,
     headers_written_ptr: u32,
@@ -169,9 +209,7 @@ unsafe fn write_http_response_to_memory(
     status_code_ptr: u32,
     body_written_ptr: u32,
 ) -> Result<(), Error> {
-    let hs = wasi_experimental_http::header_map_to_string(res.headers())?;
-    let status = res.status().as_u16();
-    let res = block_on(res.bytes())?;
+    let hs = wasi_experimental_http::header_map_to_string(&headers)?;
     // Write the response headers.
     write(
         &hs.as_bytes().to_vec(),
