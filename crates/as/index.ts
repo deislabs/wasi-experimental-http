@@ -3,29 +3,22 @@
 import * as wasi from "as-wasi";
 
 export function _start(): void {
-    let req = new Request("https://api.brigade.sh/healthz", "GET", "{}", new ArrayBuffer(0));
-    let res = request(req);
-    wasi.Console.log("HEADERS: " + res.headers + "\n");
-    let body = String.UTF8.decode(res.body);
-    wasi.Console.log("BODY: " + body + "\n");
+    let body = String.UTF8.encode("testing the body");
+    let res = new RequestBuilder("https://postman-echo.com/post")
+        .header("a", "b")
+        .header("c", "d")
+        .header("Content-Type", "text/plain")
+        .method("POST")
+        .body(body)
+        .send();
+    wasi.Console.log(res.status.toString())
+    wasi.Console.log(res.headers);
+    let result = String.UTF8.decode(res.body);
+    wasi.Console.log(result);
 }
 
 export function request(req: Request): Response {
-    return _request(req.url, req.method, req.headers, req.body);
-}
-
-export class Request {
-    public url: string;
-    public method: string;
-    public headers: string;
-    public body: ArrayBuffer;
-
-    constructor(url: string, method: string, headers: string, body: ArrayBuffer) {
-        this.url = url;
-        this.method = method;
-        this.headers = headers;
-        this.body = body;
-    }
+    return _request(req.url, req.method, headersToString(req.headers), req.body);
 }
 
 export class Response {
@@ -39,6 +32,58 @@ export class Response {
         this.body = body;
     }
 }
+
+export class Request {
+    public url: string;
+    public method: string;
+    public headers: Map<string, string>;
+    public body: ArrayBuffer;
+
+    constructor(
+        url: string,
+        method: string = "GET",
+        headers: Map<string, string> = new Map<string, string>(),
+        body: ArrayBuffer = new ArrayBuffer(0)
+    ) {
+        this.url = url;
+        this.method = method;
+        this.headers = headers;
+        this.body = body;
+    }
+}
+
+export class RequestBuilder {
+    private request: Request;
+
+    constructor(url: string) {
+        this.request = new Request(url);
+    }
+
+    public method(m: string): RequestBuilder {
+        this.request.method = m;
+        return this;
+    }
+
+    public header(key: string, value: string): RequestBuilder {
+        this.request.headers.set(key, value);
+        return this;
+    }
+
+    public body(b: ArrayBuffer): RequestBuilder {
+        this.request.body = b;
+        return this;
+    }
+
+    public send(): Response {
+        return _request(
+            this.request.url,
+            this.request.method,
+            headersToString(this.request.headers),
+            this.request.body
+        );
+    }
+}
+
 
 // @ts-ignore: decorator
 @external("wasi_experimental_http", "req")
@@ -129,6 +174,22 @@ function _request(
 
     return new Response(status, headers_res, body_res);
 }
+
+// Transform the header map into a string
+function headersToString(headers: Map<string, string>): string {
+        let res: string = "{";
+        let keys = headers.keys() as Array<string>;
+        let values = headers.values() as Array<string>;
+        for (let index = 0; index < keys.length; ++index) {
+            res += '"' + keys[index] + '"' + ":" + '"' + values[index] + '"';
+            if (index != keys.length - 1) {
+                res += ",";
+            }
+        }
+        res += "}";
+        wasi.Console.log(res);
+        return res;
+    }
 
 // Allocate memory for a new byte array of
 // size `len` and return the offset into
