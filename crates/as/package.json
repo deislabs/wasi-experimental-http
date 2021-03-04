@@ -4,6 +4,6 @@
   },
   "dependencies": {
     "as-wasi": "0.2.0",
-    "assemblyscript": "0.18.12"
+    "assemblyscript": "^0.18.12"
   }
 }
