@@ -7,16 +7,40 @@ use wasmtime_wasi::Wasi;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let instance =
-        create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
-    // let instance = create_instance("crates/as/build/optimized.wasm".to_string())?;
-
+    let modules = vec![
+        "target/wasm32-wasi/release/simple_wasi_http_tests.wasm",
+        "tests/as/build/optimized.wasm",
+    ];
     let test_funcs = vec!["get", "post"];
-    run_start(&instance, &test_funcs)
+
+    for module in modules {
+        let instance = create_instance(module.to_string())?;
+        run_tests(&instance, &test_funcs.clone())?;
+    }
+
+    // // let instance =
+    // // create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
+    // let instance = create_instance("tests/as/build/optimized.wasm".to_string())?;
+
+    // // let test_funcs = vec!["get", "post"];
+    // let test_funcs = vec!["_start"];
+    // run_tests(&instance, &test_funcs)
+
+    Ok(())
+
+    // // let instance =
+    // // create_instance("target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string())?;
+    // let instance = create_instance("tests/as/build/optimized.wasm".to_string())?;
+    // // let instance = create_instance("crates/as/build/optimized.wasm".to_string())?;
+    // // let instance =
+    // //     create_instance("../../misc/as-wasi-http-test/build/optimized.wasm".to_string())?;
+
+    // let test_funcs = vec!["post"];
+    // run_tests(&instance, &test_funcs)
 }
 
 /// Execute the module's `_start` function.
-fn run_start(instance: &Instance, test_funcs: &Vec<&str>) -> Result<(), Error> {
+fn run_tests(instance: &Instance, test_funcs: &Vec<&str>) -> Result<(), Error> {
     for func in test_funcs.iter() {
         let func = instance.get_func(func).expect("cannot find function");
         func.call(&vec![])?;

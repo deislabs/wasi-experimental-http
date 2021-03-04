@@ -2,21 +2,6 @@
 // @ts-ignore
 import * as wasi from "as-wasi";
 
-// This is just an example to show how to use the API.
-// It should be removed before publishing the package.
-export function _start(): void {
-    let body = String.UTF8.encode("testing the body");
-    let res = new RequestBuilder("https://postman-echo.com/post")
-        .header("Content-Type", "text/plain")
-        .method(Method.POST)
-        .body(body)
-        .send();
-    wasi.Console.log(res.status.toString())
-    wasi.Console.log(res.headers);
-    let result = String.UTF8.decode(res.body);
-    wasi.Console.log(result);
-}
-
 /** Send an HTTP request and return an HTTP response.
  *
  * It is recommended to use the `RequestBuilder` helper class.
@@ -123,12 +108,8 @@ export class RequestBuilder {
 
     /** Send the request and return an HTTP response. */
     public send(): Response {
-        return raw_request(
-            this.request.url,
-            methodEnumToString(this.request.method),
-            headersToString(this.request.headers),
-            this.request.body
-        );
+        wasi.Console.log("sending http request to " + this.request.url);
+        return request(this.request);
     }
 }
 
@@ -205,8 +186,21 @@ function raw_request(
     );
 
     if (err != 0) {
-        // TODO
-        // based on the error code, read and log the error.
+        // Based on the error code, read and log the error.
+        wasi.Console.log("ERROR CODE: " + err.toString());
+
+        // Error code 1 means no error message was written.
+        if (err == 1) {
+            wasi.Console.log("Runtime error: cannot find exorted alloc function or memory");
+            abort();
+        }
+
+        // An error code was written. Read it, then abort.
+        let err_len = load<usize>(err_len_ptr) as u32;
+        let err_buf = new ArrayBuffer(err_len);
+        memory.copy(changetype<usize>(err_buf), err_ptr, err_len);
+        wasi.Console.log("Runtime error: " + String.UTF8.decode(err_buf));
+        abort();
     }
 
     let status = load<usize>(status_code_ptr) as u16;
