@@ -11,6 +11,7 @@ futures = "0.3"
 http = "0.2"
 reqwest = { version = "0.11", default-features = true, features = ["json", "blocking"] }
 tokio = { version = "1.1", features = ["full"] }
+url = "2.2.1"
 wasmtime = "0.22"
 wasmtime-wasi = "0.22"
 wasi-common = "0.22"

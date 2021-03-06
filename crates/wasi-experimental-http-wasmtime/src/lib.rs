@@ -5,13 +5,14 @@ use http::{HeaderMap, HeaderValue};
 use reqwest::{Client, Method};
 use std::str::FromStr;
 use tokio::runtime::Handle;
+use url::Url;
 use wasi_experimental_http;
 use wasmtime::*;
 
 const ALLOC_FN: &str = "alloc";
 const MEMORY: &str = "memory";
 
-pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
+pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> Result<(), Error> {
     linker.func(
         "wasi_experimental_http",
         "req",
@@ -80,6 +81,35 @@ pub fn link_http(linker: &mut Linker) -> Result<(), Error> {
                 Err(_) => {
                     return err(
                         "cannot get HTTP parts from memory".to_string(),
+                        Some(&memory),
+                        Some(&alloc),
+                        err_ptr,
+                        err_len_ptr,
+                        4,
+                    )
+                }
+            };
+
+            match is_allowed(url.clone(), allowed_domains.clone()) {
+                Ok(e) => match e {
+                    true => {}
+                    false => {
+                        return err(
+                            format!(
+                            "URL {} not allowed because domain or subdomain not in allowed list",
+                            url
+                        ),
+                            Some(&memory),
+                            Some(&alloc),
+                            err_ptr,
+                            err_len_ptr,
+                            4,
+                        )
+                    }
+                },
+                Err(e) => {
+                    return err(
+                        e.to_string(),
                         Some(&memory),
                         Some(&alloc),
                         err_ptr,
@@ -235,6 +265,22 @@ unsafe fn write_http_response_to_memory(
     Ok(())
 }
 
+fn is_allowed(url: String, allowed_domains: Option<Vec<String>>) -> Result<bool, Error> {
+    let url_host = Url::parse(&url)?.host_str().unwrap().to_string();
+    match allowed_domains {
+        Some(domains) => {
+            let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
+            let allowed = allowed?;
+            let a: Vec<String> = allowed
+                .iter()
+                .map(|u| u.host_str().unwrap().to_string())
+                .collect();
+            Ok(a.contains(&url_host))
+        }
+        None => return Ok(true),
+    }
+}
+
 /// Write error details into the module's memory and return.
 fn err(
     msg: String,
@@ -341,4 +387,42 @@ fn write(
     }
 
     Ok(())
+}
+
+#[test]
+fn test_allowed_domains() {
+    let allowed_domains = vec![
+        "https://api.brigade.sh".to_string(),
+        "https://example.com".to_string(),
+        "http://192.168.0.1".to_string(),
+    ];
+
+    assert_eq!(
+        true,
+        is_allowed(
+            "https://api.brigade.sh/healthz".to_string(),
+            Some(allowed_domains.clone())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed(
+            "https://example.com/some/path/with/more/paths".to_string(),
+            Some(allowed_domains.clone())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed(
+            "http://192.168.0.1/login".to_string(),
+            Some(allowed_domains.clone())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        false,
+        is_allowed("https://test.brigade.sh".to_string(), Some(allowed_domains)).unwrap()
+    );
 }
