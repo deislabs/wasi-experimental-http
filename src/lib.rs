@@ -2,9 +2,10 @@
 mod tests {
     use anyhow::Error;
     use std::time::Instant;
+    use wasi_cap_std_sync::WasiCtxBuilder;
     use wasi_experimental_http_wasmtime::link_http;
     use wasmtime::*;
-    use wasmtime_wasi::{Wasi, WasiCtxBuilder};
+    use wasmtime_wasi::Wasi;
 
     // We run the same test in a Tokio and non-Tokio environment
     // in order to make sure both scenarios are working.

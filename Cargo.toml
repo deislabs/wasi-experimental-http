@@ -10,9 +10,10 @@ futures = "0.3"
 http = "0.2"
 reqwest = { version = "0.11", default-features = true, features = ["json", "blocking"] }
 tokio = { version = "1.1", features = ["full"] }
-wasmtime = "0.22"
-wasmtime-wasi = "0.22"
-wasi-common = "0.22"
+wasmtime = "0.24"
+wasmtime-wasi = "0.24"
+wasi-common = "0.24"
+wasi-cap-std-sync = "0.24"
 wasi-experimental-http = {path = "crates/wasi-experimental-http"}
 wasi-experimental-http-wasmtime = {path = "crates/wasi-experimental-http-wasmtime"}
 
