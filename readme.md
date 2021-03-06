@@ -53,7 +53,7 @@ let wasi = Wasi::new(&store, ctx);
 wasi.add_to_linker(&mut linker)?;
 
 // link the experimental HTTP support
-wasi_experimental_http_wasmtime::link_http(&mut linker)?;
+wasi_experimental_http_wasmtime::link_http(&mut linker, None)?;
 ```
 
 Then, executing the module above will send the HTTP request and write the
@@ -69,7 +69,7 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 {
     "content-length": "374",
     "connection": "keep-alive",
-    "set-cookie": "sails.sid=s%3AqFVoX_OuCEaG0vtZ2sjldxVLbphpRYNi.KxWbUPNDQ%2BuMaAu9IICiEBDxsAd0RJ8uvUi9YMN3Nv8; Path=/; HttpOnly",
+    "set-cookie": "sails.Path=/; HttpOnly",
     "vary": "Accept-Encoding",
     "content-type": "application/json; charset=utf-8",
     "date": "Fri, 26 Feb 2021 18:31:03 GMT",
@@ -77,11 +77,18 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 }
 {"args":{},"data":"Testing with a request body. Does this actually work?","files":{},"form":{},"headers":{"x-forwarded-proto":"https","x-forwarded-port":"443","host":"postman-echo.com","x-amzn-trace-id":"Root=1-60393e67-02d1c8033bcf4f1e74a4523e","content-length":"53","content-type":"text/plain","abc":"def","accept":"*/*"},"json":null,"url":"https://postman-echo.com/post"}
 "200 OK"
-
 ```
 
+The Wasmtime implementation also enables allowed domains - an optional and
+configurable list of domains or hosts that guest modules are allowed to make. If
+`None` is passed, guest modules are allowed to access any domain or host.
+connections to. (Note that the hosts passed MUST have the protocol also
+specified - i.e. "https://my-domain.com", or "http://192.168.0.1", and if making
+requests to a subdomain, the subdomain MUST be in the allowed list. See the the
+library tests for more examples).
+
 Note that the Wasmtime version currently supported is
-[0.23](https://docs.rs/wasmtime/0.23.0/wasmtime/).
+[0.22](https://docs.rs/wasmtime/0.22.0/wasmtime/).
 
 ### Sending HTTP requests from AssemblyScript
 
