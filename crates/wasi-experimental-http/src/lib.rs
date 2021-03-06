@@ -121,9 +121,9 @@ unsafe fn raw_request(
         // Depending on the error, the runtime might have not been able to
         // actually write any details (if the module didn't export a memory
         // or alloc function, for example).
-        // TODO
-        // Add an error enum that corresponds to the error code and
-        // print it here, as well as the error details.
+        if err == 1 {
+            return Err(Error::msg("cannot find memory or alloc function"));
+        }
 
         let bytes = Vec::from_raw_parts(
             *err_ptr as *mut u8,
@@ -204,13 +204,17 @@ mod tests {
         hm.insert("custom-header", HeaderValue::from_static("custom-value"));
         hm.insert("custom-header2", HeaderValue::from_static("custom-value2"));
         let str = header_map_to_string(&hm).unwrap();
-        println!("{}", str);
+        assert_eq!(
+            r#"{"custom-header":"custom-value","custom-header2":"custom-value2"}"#,
+            str
+        );
     }
 
     #[test]
     fn test_string_to_header_map() {
         let headers = r#"{"custom-header":"custom-value","custom-header2":"custom-value2"}"#;
         let header_map = string_to_header_map(headers.to_string()).unwrap();
-        println!("{:#?}", header_map);
+        assert_eq!("custom-value", header_map.get("custom-header").unwrap());
+        assert_eq!("custom-value2", header_map.get("custom-header2").unwrap());
     }
 }
