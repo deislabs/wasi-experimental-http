@@ -10,14 +10,19 @@ export function post(): void {
     .method(Method.POST)
     .body(body)
     .send();
-  print(res);
+
+  let result = String.UTF8.decode(res.body);
+  // print(res);
 }
 
 export function get(): void {
   let res = new RequestBuilder("https://api.brigade.sh/healthz")
     .method(Method.GET)
     .send();
-  print(res);
+  // print(res);
+  if (String.UTF8.decode(res.body) != '"OK"') {
+    abort();
+  }
 }
 
 function print(res: Response): void {

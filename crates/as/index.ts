@@ -108,7 +108,6 @@ export class RequestBuilder {
 
     /** Send the request and return an HTTP response. */
     public send(): Response {
-        wasi.Console.log("sending http request to " + this.request.url);
         return request(this.request);
     }
 }
