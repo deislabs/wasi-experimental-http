@@ -6,22 +6,48 @@ mod tests {
     use wasmtime::*;
     use wasmtime_wasi::{Wasi, WasiCtxBuilder};
 
-    #[test]
-    fn test_http() {
-        let modules = vec![
-            "target/wasm32-wasi/release/simple_wasi_http_tests.wasm",
-            "tests/as/build/optimized.wasm",
-        ];
-        let test_funcs = vec!["get", "post"];
+    // We run the same test in a Tokio and non-Tokio environment
+    // in order to make sure both scenarios are working.
 
-        for module in modules {
-            let instance = create_instance(module.to_string()).unwrap();
-            run_tests(&instance, &test_funcs.clone()).unwrap();
-        }
+    #[test]
+    fn test_all_allowed() {
+        setup_tests(None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_http_async() {
+    async fn test_async_all_allowed() {
+        setup_tests(None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_without_allowed_domains() {
+        setup_tests(Some(vec![]));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[should_panic]
+    async fn test_async_without_allowed_domains() {
+        setup_tests(Some(vec![]));
+    }
+
+    #[test]
+    fn test_with_allowed_domains() {
+        setup_tests(Some(vec![
+            "https://api.brigade.sh".to_string(),
+            "https://postman-echo.com".to_string(),
+        ]));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_async_with_allowed_domains() {
+        setup_tests(Some(vec![
+            "https://api.brigade.sh".to_string(),
+            "https://postman-echo.com".to_string(),
+        ]));
+    }
+
+    fn setup_tests(allowed_domains: Option<Vec<String>>) {
         let modules = vec![
             "target/wasm32-wasi/release/simple_wasi_http_tests.wasm",
             "tests/as/build/optimized.wasm",
@@ -29,7 +55,7 @@ mod tests {
         let test_funcs = vec!["get", "post"];
 
         for module in modules {
-            let instance = create_instance(module.to_string()).unwrap();
+            let instance = create_instance(module.to_string(), allowed_domains.clone()).unwrap();
             run_tests(&instance, &test_funcs.clone()).unwrap();
         }
     }
@@ -46,7 +72,10 @@ mod tests {
 
     /// Create a Wasmtime::Instance from a compiled module and
     /// link the WASI imports.
-    fn create_instance(filename: String) -> Result<Instance, Error> {
+    fn create_instance(
+        filename: String,
+        allowed_domains: Option<Vec<String>>,
+    ) -> Result<Instance, Error> {
         let start = Instant::now();
         let store = Store::default();
         let mut linker = Linker::new(&store);
@@ -60,7 +89,7 @@ mod tests {
         let wasi = Wasi::new(&store, ctx);
         wasi.add_to_linker(&mut linker)?;
         // Link `wasi_experimental_http::req`.
-        link_http(&mut linker)?;
+        link_http(&mut linker, allowed_domains)?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;
 

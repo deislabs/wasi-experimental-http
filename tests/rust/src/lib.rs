@@ -9,7 +9,8 @@ pub extern "C" fn get() {
     let res = wasi_experimental_http::request(req).expect("cannot make get request");
 
     let str = std::str::from_utf8(&res.body()).unwrap().to_string();
-    println!("{}", str);
+    assert_eq!(r#""OK""#, str);
+    // println!("{}", str);
 }
 
 #[no_mangle]
@@ -24,8 +25,8 @@ pub extern "C" fn post() {
     let req = req.body(Some(b)).unwrap();
 
     let res = wasi_experimental_http::request(req).expect("cannot make post request");
-    let str = std::str::from_utf8(&res.body()).unwrap().to_string();
-    println!("{:#?}", res.headers());
-    println!("{}", str);
-    println!("{:#?}", res.status().to_string());
+    let _ = std::str::from_utf8(&res.body()).unwrap().to_string();
+    // println!("{:#?}", res.headers());
+    // println!("{}", str);
+    // println!("{:#?}", res.status().to_string());
 }
