@@ -2,6 +2,20 @@
   "name": "@deislabs/wasi-experimental-http",
   "main": "index.ts",
   "types": "index.ts",
+  "version": "0.1.0",
+  "description": "Experimental HTTP library for AssemblyScript",
+  "author": {
+    "name": "The DeisLabs team at Microsoft"
+  },
+  "homepage": "https://github.com/deislabs/wasi-experimental-http",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deislabs/wasi-experimental-http"
+  },
+  "bugs": {
+    "url": "https://github.com/deislabs/wasi-experimental-http/issues"
+  },
+  "license": "MIT",
   "scripts": {
     "asbuild": "asc index.ts -b build/optimized.wasm --use abort=wasi_abort --debug"
   },
