@@ -88,7 +88,7 @@ requests to a subdomain, the subdomain MUST be in the allowed list. See the the
 library tests for more examples).
 
 Note that the Wasmtime version currently supported is
-[0.22](https://docs.rs/wasmtime/0.22.0/wasmtime/).
+[0.24](https://docs.rs/wasmtime/0.24.0/wasmtime/).
 
 ### Sending HTTP requests from AssemblyScript
 
