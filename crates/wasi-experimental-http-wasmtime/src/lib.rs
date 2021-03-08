@@ -174,22 +174,33 @@ fn request(
     body: Vec<u8>,
 ) -> Result<(u16, HeaderMap<HeaderValue>, Bytes), Error> {
     match Handle::try_current() {
-        Ok(_) => {
-            println!("wasi_experimental_http::request: tokio runtime available");
-            let client = Client::builder().build().unwrap();
-            let res = block_on(
-                client
-                    .request(method, &url)
-                    .headers(headers)
-                    .body(body)
-                    .send(),
-            )?;
+        Ok(r) => {
+            // If running in a Tokio runtime, spawn a new blocking executor
+            // that will send the HTTP request, and block on its execution.
+            // This attempts to avoid any deadlocks from other operations
+            // already executing on the same executor (compared with just
+            // blocking on the current one).
+            //
+            // This should only be a temporary workaround, until we take
+            // advantage of async functions in Wasmtime.
 
-            return Ok((
-                res.status().as_u16(),
-                res.headers().clone(),
-                block_on(res.bytes())?,
-            ));
+            println!("wasi_experimental_http::request: tokio runtime available");
+            block_on(r.spawn_blocking(move || {
+                let client = Client::builder().build().unwrap();
+                let res = block_on(
+                    client
+                        .request(method, &url)
+                        .headers(headers)
+                        .body(body)
+                        .send(),
+                )?;
+
+                return Ok((
+                    res.status().as_u16(),
+                    res.headers().clone(),
+                    block_on(res.bytes())?,
+                ));
+            }))?
         }
         Err(_) => {
             println!("wasi_experimental_http::request: no Tokio runtime available");
@@ -200,7 +211,7 @@ fn request(
                 .send()?;
             return Ok((res.status().as_u16(), res.headers().clone(), res.bytes()?));
         }
-    };
+    }
 }
 
 /// Get the URL, method, request body, and headers from the
