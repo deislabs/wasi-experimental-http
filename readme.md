@@ -1,10 +1,10 @@
 # `wasi-experimental-http`
 
-This projects adds experimental and _temporary_ outgoing HTTP support for WASI
-modules. It is currently unstable and incomplete. This project does not aim to
-replace WASI's native networking and sockets API, but rather provide a temporary
-workaround for guest modules to make outbound HTTP requests until WASI
-stabilizes the networking API.
+This is an experiment intended to provide a _temporary_ workaround until the
+WASI networking API is stable, and is compatible with [Wasmtime v0.24][24] by
+using the `wasi_experiemental_http_wasmtime` crate. We expect that once [the
+WASI sockets proposal][sockets-wip] gets adopted and implemented in language
+toolchains, the need for this library will vanish.
 
 ### Writing a module that makes an HTTP request
 
@@ -42,7 +42,7 @@ update a Wasmtime runtime with the experimental HTTP support.
 ### Adding support to a Wasmtime runtime
 
 The easiest way to add support is by using the
-[Wasmtime linker](https://docs.rs/wasmtime/0.23.0/wasmtime/struct.Linker.html):
+[Wasmtime linker](https://docs.rs/wasmtime/0.24.0/wasmtime/struct.Linker.html):
 
 ```rust
 let store = Store::default();
@@ -80,12 +80,12 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 ```
 
 The Wasmtime implementation also enables allowed domains - an optional and
-configurable list of domains or hosts that guest modules are allowed to make. If
-`None` is passed, guest modules are allowed to access any domain or host.
-connections to. (Note that the hosts passed MUST have the protocol also
-specified - i.e. `https://my-domain.com`, or `http://192.168.0.1`, and if making
-requests to a subdomain, the subdomain MUST be in the allowed list. See the the
-library tests for more examples).
+configurable list of domains or hosts that guest modules are allowed to send
+requests to. If `None` is passed, guest modules are allowed to access any domain
+or host. (Note that the hosts passed MUST have the protocol also specified -
+i.e. `https://my-domain.com`, or `http://192.168.0.1`, and if making requests to
+a subdomain, the subdomain MUST be in the allowed list. See the the library
+tests for more examples).
 
 Note that the Wasmtime version currently supported is
 [0.24](https://docs.rs/wasmtime/0.24.0/wasmtime/).
@@ -120,6 +120,9 @@ export function _start_(): void {
 
 ### Known limitations
 
+- there is no support for streaming HTTP responses, which this means guest
+  modules have to wait until the entire body has been written by the runtime
+  before reading it.
 - request and response bodies are [`Bytes`](https://docs.rs/bytes/1.0.1/bytes/).
 - handling headers in Rust is currently very inefficient.
 - there are no WITX definitions, which means we have to manually keep the host
@@ -128,3 +131,18 @@ export function _start_(): void {
 - the `alloc` function in AssemblyScript has to be re-exported in order for the
   runtime to use it. There probably is a decorator or Binaryen setting to avoid
   removing it, but for now this has to be re-exported.
+- this library does not aim to add support for running HTTP servers in
+  WebAssembly.
+
+### Code of Conduct
+
+This project has adopted the
+[Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+
+For more information see the
+[Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any
+additional questions or comments.
+
+[24]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.24.0
+[sockets-wip]: https://github.com/WebAssembly/WASI/pull/312
