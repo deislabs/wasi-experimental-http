@@ -3,6 +3,9 @@ name = "wasi-experimental-http-wasmtime"
 version = "0.1.0"
 authors = ["Radu Matei <radu.matei@microsoft.com>"]
 edition = "2018"
+repository = "https://github.com/deislabs/wasi-experimental-http"
+license = "MIT"
+description = "Experimental HTTP library for WebAssembly in Wasmtime"
 
 [dependencies]
 anyhow = "1.0"
@@ -15,4 +18,4 @@ url = "2.2.1"
 wasmtime = "0.24"
 wasmtime-wasi = "0.24"
 wasi-common = "0.24"
-wasi-experimental-http = {path = "../wasi-experimental-http"}
+wasi-experimental-http = "0.1.0"
