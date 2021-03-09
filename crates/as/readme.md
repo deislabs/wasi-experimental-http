@@ -1,5 +1,7 @@
 # `@deislabs/wasi-experimental-http`
 
+[![npm version](https://badge.fury.io/js/%40deislabs%2Fwasi-experimental-http.svg)](https://badge.fury.io/js/%40deislabs%2Fwasi-experimental-http)
+
 Experimental HTTP client library for AssemblyScript.
 
 ### Using this library

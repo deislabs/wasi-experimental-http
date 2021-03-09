@@ -1,5 +1,7 @@
 # `wasi-experimental-http`
 
+![Crates.io](https://img.shields.io/crates/v/wasi-experimental-http)
+
 Experimental HTTP library for WebAssembly
 
 ### Using the crate

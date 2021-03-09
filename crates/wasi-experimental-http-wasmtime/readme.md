@@ -1,5 +1,7 @@
 # `wasi-experimental-http-wasmtime`
 
+![Crates.io](https://img.shields.io/crates/v/wasi-experimental-http-wasmtime)
+
 Experimental HTTP library for WebAssembly in Wasmtime
 
 ### Adding support to a Wasmtime runtime
