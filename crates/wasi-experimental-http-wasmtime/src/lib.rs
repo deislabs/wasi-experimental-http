@@ -6,7 +6,6 @@ use reqwest::{Client, Method};
 use std::str::FromStr;
 use tokio::runtime::Handle;
 use url::Url;
-use wasi_experimental_http;
 use wasmtime::*;
 
 const ALLOC_FN: &str = "alloc";
@@ -124,8 +123,8 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                 Err(e) => {
                     return err(
                         e.to_string(),
-                        Some(&memory.clone()),
-                        Some(&alloc.clone()),
+                        Some(&memory),
+                        Some(&alloc),
                         err_ptr,
                         err_len_ptr,
                         3,
@@ -151,8 +150,8 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                     Err(e) => {
                         return err(
                             e.to_string(),
-                            Some(&memory.clone()),
-                            Some(&alloc.clone()),
+                            Some(&memory),
+                            Some(&alloc),
                             err_ptr,
                             err_len_ptr,
                             3,
@@ -216,6 +215,7 @@ fn request(
 
 /// Get the URL, method, request body, and headers from the
 /// module's memory.
+#[allow(clippy::too_many_arguments)]
 unsafe fn http_parts_from_memory(
     memory: &Memory,
     url_ptr: u32,
@@ -238,6 +238,7 @@ unsafe fn http_parts_from_memory(
 }
 
 /// Write the response data to the module's memory.
+#[allow(clippy::too_many_arguments)]
 unsafe fn write_http_response_to_memory(
     status: u16,
     headers: HeaderMap,
@@ -252,26 +253,14 @@ unsafe fn write_http_response_to_memory(
 ) -> Result<(), Error> {
     let hs = wasi_experimental_http::header_map_to_string(&headers)?;
     // Write the response headers.
-    write(
-        &hs.as_bytes().to_vec(),
-        headers_res_ptr,
-        headers_written_ptr,
-        &memory,
-        &alloc,
-    )?;
+    write(&hs, headers_res_ptr, headers_written_ptr, &memory, &alloc)?;
 
     // Write the status code pointer.
     let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u32;
     *status_tmp_ptr = status as u32;
 
     // Write the response body.
-    write(
-        &res.to_vec(),
-        body_res_ptr,
-        body_written_ptr,
-        &memory,
-        &alloc,
-    )?;
+    write(&res, body_res_ptr, body_written_ptr, &memory, &alloc)?;
 
     Ok(())
 }
@@ -288,7 +277,7 @@ fn is_allowed(url: String, allowed_domains: Option<Vec<String>>) -> Result<bool,
                 .collect();
             Ok(a.contains(&url_host))
         }
-        None => return Ok(true),
+        None => Ok(true),
     }
 }
 
@@ -309,15 +298,8 @@ fn err(
         Some(a) => a,
         None => return err_code,
     };
-    match write(
-        &msg.as_bytes().to_vec(),
-        err_ptr,
-        err_len_ptr,
-        memory,
-        alloc,
-    ) {
-        _ => return err_code,
-    }
+    let _ = write(&msg, err_ptr, err_len_ptr, memory, alloc);
+    err_code
 }
 
 /// Read a byte array from the instance's `memory`  of length `len_ptr`
@@ -333,7 +315,7 @@ unsafe fn data_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> (Opt
         .get(data_ptr as u32 as usize..)
         .and_then(|arr| arr.get(..len as u32 as usize));
 
-    return (data, len);
+    (data, len)
 }
 
 /// Get a `Vec<u8>` from the module's memory.
@@ -365,13 +347,14 @@ unsafe fn string_from_memory(
 /// Write a byte array into the instance's linear memory
 /// and return the offset relative to the module's memory.
 fn write(
-    bytes: &Vec<u8>,
+    data: impl AsRef<[u8]>,
     ptr: u32,
     bytes_written_ptr: u32,
     memory: &Memory,
     alloc: &Func,
 ) -> Result<(), Error> {
-    let alloc_result = alloc.call(&vec![Val::from(bytes.len() as i32)])?;
+    let bytes = data.as_ref();
+    let alloc_result = alloc.call(&[Val::from(bytes.len() as i32)])?;
     let guest_ptr_offset = match alloc_result
         .get(0)
         .expect("expected the result of the allocation to have one value")

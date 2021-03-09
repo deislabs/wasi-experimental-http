@@ -55,9 +55,9 @@ fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Err
 /// Note that the runtime MUST support this library, otherwise, the module
 /// will not be instantiated.
 unsafe fn raw_request(
-    url: &String,
+    url: &str,
     method: String,
-    headers: &String,
+    headers: &str,
     body: &Option<Bytes>,
 ) -> Result<(Vec<u8>, Vec<u8>, u16), Error> {
     let body = match body {
@@ -179,7 +179,7 @@ pub extern "C" fn alloc(len: usize) -> *mut u8 {
     let ptr = buf.as_mut_ptr();
 
     std::mem::forget(buf);
-    return ptr;
+    ptr
 }
 
 /// Get a raw pointer to a `u32` where the runtime can write the
