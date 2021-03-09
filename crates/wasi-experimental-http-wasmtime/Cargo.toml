@@ -1,11 +1,12 @@
 [package]
 name = "wasi-experimental-http-wasmtime"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Radu Matei <radu.matei@microsoft.com>"]
 edition = "2018"
 repository = "https://github.com/deislabs/wasi-experimental-http"
 license = "MIT"
 description = "Experimental HTTP library for WebAssembly in Wasmtime"
+readme = "readme.md"
 
 [dependencies]
 anyhow = "1.0"
