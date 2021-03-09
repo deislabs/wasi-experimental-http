@@ -5,8 +5,10 @@ use std::{collections::HashMap, str::FromStr};
 
 /// Create an HTTP request and get an HTTP response.
 /// Currently, both the request and response bodies have to be `Vec<u8>`.
+#[tracing::instrument]
 pub fn request(req: Request<Option<Bytes>>) -> Result<Response<Bytes>, Error> {
     let url = req.uri().to_string();
+    tracing::debug!(%url, headers = ?req.headers(), "performing http request using wasmtime function");
     let headers = header_map_to_string(req.headers())?;
     let (body, headers, status_code) =
         unsafe { raw_request(&url, req.method().to_string(), &headers, req.body())? };
@@ -15,6 +17,7 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response<Bytes>, Error> {
         res.headers_mut().unwrap(),
         std::str::from_utf8(&headers)?.to_string(),
     )?;
+    tracing::debug!(status_code, headers = ?res.headers_ref().unwrap(), body_len = body.len(), "got http response");
 
     Ok(res.body(Bytes::from(body))?)
 }
@@ -55,9 +58,9 @@ fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Err
 /// Note that the runtime MUST support this library, otherwise, the module
 /// will not be instantiated.
 unsafe fn raw_request(
-    url: &String,
+    url: &str,
     method: String,
-    headers: &String,
+    headers: &str,
     body: &Option<Bytes>,
 ) -> Result<(Vec<u8>, Vec<u8>, u16), Error> {
     let body = match body {
@@ -117,7 +120,7 @@ unsafe fn raw_request(
 
     // If the returned error is not 0, return it.
     if err != 0 {
-        println!("error code: {}", err);
+        tracing::error!(error_code = err, "got error code from response");
         // Depending on the error, the runtime might have not been able to
         // actually write any details (if the module didn't export a memory
         // or alloc function, for example).
@@ -179,7 +182,7 @@ pub extern "C" fn alloc(len: usize) -> *mut u8 {
     let ptr = buf.as_mut_ptr();
 
     std::mem::forget(buf);
-    return ptr;
+    ptr
 }
 
 /// Get a raw pointer to a `u32` where the runtime can write the

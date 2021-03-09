@@ -1,6 +1,4 @@
 use bytes::Bytes;
-use http;
-use wasi_experimental_http;
 
 #[no_mangle]
 pub extern "C" fn get() {

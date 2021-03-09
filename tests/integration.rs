@@ -57,15 +57,15 @@ mod tests {
 
         for module in modules {
             let instance = create_instance(module.to_string(), allowed_domains.clone()).unwrap();
-            run_tests(&instance, &test_funcs.clone()).unwrap();
+            run_tests(&instance, &test_funcs).unwrap();
         }
     }
 
     /// Execute the module's `_start` function.
-    fn run_tests(instance: &Instance, test_funcs: &Vec<&str>) -> Result<(), Error> {
-        for func in test_funcs.iter() {
-            let func = instance.get_func(func).expect("cannot find function");
-            func.call(&vec![])?;
+    fn run_tests(instance: &Instance, test_funcs: &[&str]) -> Result<(), Error> {
+        for func_name in test_funcs.iter() {
+            let func = instance.get_func(func_name).expect("cannot find function");
+            func.call(&[])?;
         }
 
         Ok(())
