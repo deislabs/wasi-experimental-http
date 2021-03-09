@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Radu Matei <radu.matei@microsoft.com>"]
 edition = "2018"
 
-[dependencies]
+[dev-dependencies]
 anyhow = "1.0"
 futures = "0.3"
 http = "0.2"
@@ -14,8 +14,8 @@ wasmtime = "0.24"
 wasmtime-wasi = "0.24"
 wasi-common = "0.24"
 wasi-cap-std-sync = "0.24"
-wasi-experimental-http = {path = "crates/wasi-experimental-http"}
-wasi-experimental-http-wasmtime = {path = "crates/wasi-experimental-http-wasmtime"}
+wasi-experimental-http = { path = "crates/wasi-experimental-http" }
+wasi-experimental-http-wasmtime = { path = "crates/wasi-experimental-http-wasmtime" }
 
 [workspace]
 members = [
