@@ -17,20 +17,20 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
         "req",
         move |caller: Caller<'_>,
               url_ptr: u32,
-              url_len_ptr: u32,
+              url_len: u32,
               method_ptr: u32,
-              method_len_ptr: u32,
-              req_body_ptr: u32,
-              req_body_len_ptr: u32,
+              method_len: u32,
+              req_body: u32,
+              req_body_len: u32,
               headers_ptr: u32,
-              headers_len_ptr: u32,
+              headers_len: u32,
               body_res_ptr: u32,
               body_written_ptr: u32,
-              headers_written_ptr: u32,
               headers_res_ptr: u32,
+              headers_written_ptr: u32,
               status_code_ptr: u32,
               err_ptr: u32,
-              err_len_ptr: u32|
+              err_written_ptr: u32|
               -> u32 {
             let span = tracing::trace_span!("req");
             let _enter = span.enter();
@@ -46,7 +46,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                         None,
                         None,
                         err_ptr,
-                        err_len_ptr,
+                        err_written_ptr,
                         1,
                     )
                 }
@@ -60,7 +60,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                         None,
                         None,
                         err_ptr,
-                        err_len_ptr,
+                        err_written_ptr,
                         1,
                     )
                 }
@@ -71,13 +71,13 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                 http_parts_from_memory(
                     &memory,
                     url_ptr,
-                    url_len_ptr,
+                    url_len,
                     method_ptr,
-                    method_len_ptr,
-                    req_body_ptr,
-                    req_body_len_ptr,
+                    method_len,
+                    req_body,
+                    req_body_len,
                     headers_ptr,
-                    headers_len_ptr,
+                    headers_len,
                 )
             } {
                 Ok(r) => (r.0, r.1, r.2, r.3),
@@ -87,7 +87,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                         Some(&memory),
                         Some(&alloc),
                         err_ptr,
-                        err_len_ptr,
+                        err_written_ptr,
                         4,
                     )
                 }
@@ -105,7 +105,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                             Some(&memory),
                             Some(&alloc),
                             err_ptr,
-                            err_len_ptr,
+                            err_written_ptr,
                             4,
                         )
                     }
@@ -116,7 +116,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                         Some(&memory),
                         Some(&alloc),
                         err_ptr,
-                        err_len_ptr,
+                        err_written_ptr,
                         4,
                     )
                 }
@@ -130,7 +130,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                         Some(&memory),
                         Some(&alloc),
                         err_ptr,
-                        err_len_ptr,
+                        err_written_ptr,
                         3,
                     )
                 }
@@ -162,7 +162,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                         Some(&memory),
                         Some(&alloc),
                         err_ptr,
-                        err_len_ptr,
+                        err_written_ptr,
                         3,
                     ),
                 }
@@ -233,20 +233,20 @@ fn request(
 unsafe fn http_parts_from_memory(
     memory: &Memory,
     url_ptr: u32,
-    url_len_ptr: u32,
+    url_len: u32,
     method_ptr: u32,
-    method_len_ptr: u32,
+    method_len: u32,
     req_body_ptr: u32,
-    req_body_len_ptr: u32,
+    req_body_len: u32,
     headers_ptr: u32,
-    headers_len_ptr: u32,
+    headers_len: u32,
 ) -> Result<(String, HeaderMap, Method, Vec<u8>), Error> {
-    let url = string_from_memory(&memory, url_ptr, url_len_ptr)?;
-    let headers = string_from_memory(&memory, headers_ptr, headers_len_ptr)?;
+    let url = string_from_memory(&memory, url_ptr, url_len)?;
+    let headers = string_from_memory(&memory, headers_ptr, headers_len)?;
     let headers = wasi_experimental_http::string_to_header_map(headers)?;
-    let method = string_from_memory(&memory, method_ptr, method_len_ptr)?;
+    let method = string_from_memory(&memory, method_ptr, method_len)?;
     let method = Method::from_str(&method)?;
-    let req_body = vec_from_memory(&memory, req_body_ptr, req_body_len_ptr);
+    let req_body = vec_from_memory(&memory, req_body_ptr, req_body_len);
 
     Ok((url, headers, method, req_body))
 }
@@ -270,8 +270,8 @@ unsafe fn write_http_response_to_memory(
     write(&hs, headers_res_ptr, headers_written_ptr, &memory, &alloc)?;
 
     // Write the status code pointer.
-    let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u32;
-    *status_tmp_ptr = status as u32;
+    let status_tmp_ptr = memory.data_ptr().offset(status_code_ptr as isize) as *mut u16;
+    *status_tmp_ptr = status;
 
     // Write the response body.
     write(&res, body_res_ptr, body_written_ptr, &memory, &alloc)?;
@@ -315,10 +315,7 @@ fn err(
 
 /// Read a byte array from the instance's `memory`  of length `len_ptr`
 /// starting at offset `data_ptr`
-unsafe fn data_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> (Option<&[u8]>, u32) {
-    let len_ptr = memory.data_ptr().offset(len_ptr as isize) as *const u32;
-    let len = *len_ptr;
-
+unsafe fn data_from_memory(memory: &Memory, data_ptr: u32, len: u32) -> (Option<&[u8]>, u32) {
     println!("wasi_experimental_http::data_from_memory:: length: {}", len);
 
     let data = memory
@@ -336,14 +333,14 @@ unsafe fn vec_from_memory(memory: &Memory, data_ptr: u32, len_ptr: u32) -> Vec<u
     data.unwrap_or_default().to_vec()
 }
 
-/// Read a string from the instance's `memory`  of length `len_ptr`
+/// Read a string from the instance's `memory`  of length `len`
 /// starting at offset `data_ptr`
 unsafe fn string_from_memory(
     memory: &Memory,
     data_ptr: u32,
-    len_ptr: u32,
+    len: u32,
 ) -> Result<String, anyhow::Error> {
-    let (data, _) = data_from_memory(&memory, data_ptr, len_ptr);
+    let (data, _) = data_from_memory(&memory, data_ptr, len);
     let str = match data {
         Some(data) => match std::str::from_utf8(data) {
             Ok(s) => s,
