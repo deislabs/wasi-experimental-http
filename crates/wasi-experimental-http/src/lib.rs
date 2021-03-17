@@ -71,31 +71,31 @@ unsafe fn raw_request(
     // Get pointers and lengths from the incoming requests' URL,
     // method, headers, and body.
 
-    let req_body_ptr = body.as_ptr() as *mut u32;
-    let req_body_len_ptr = &(body.len() as u32) as *const u32;
+    let req_body_ptr = body.as_ptr();
+    let req_body_len_ptr = body.len();
 
-    let method_len_ptr = &(method.len() as u32) as *const u32;
-    let method_ptr = method.as_bytes().as_ptr() as *mut u32;
+    let method_ptr = method.as_bytes().as_ptr();
+    let method_len_ptr = method.len();
 
-    let url_len_ptr = &(url.len() as u32) as *const u32;
-    let url_ptr = url.as_bytes().as_ptr() as *mut u32;
+    let url_ptr = url.as_bytes().as_ptr();
+    let url_len_ptr = url.len();
 
-    let headers_len_ptr = &(headers.len() as u32) as *const u32;
-    let headers_ptr = headers.as_bytes().as_ptr() as *mut u32;
+    let headers_ptr = headers.as_bytes().as_ptr();
+    let headers_len_ptr = headers.len();
 
     // Create raw pointers that the runtime will write information about
     // the response, headers, status code, and error into.
 
-    let body_res_ptr = raw_ptr();
+    let body_res_ptr = raw_string_ptr();
     let body_written_ptr = raw_ptr();
 
+    let headers_res_ptr = raw_string_ptr();
     let headers_written_ptr = raw_ptr();
-    let headers_res_ptr = raw_ptr();
 
     let status_code_ptr = raw_ptr();
 
-    let err_ptr = raw_ptr();
-    let err_len_ptr = raw_ptr();
+    let err_ptr = raw_string_ptr();
+    let err_written_ptr = raw_ptr();
 
     // Make a host function call, which will write the required data
     // in the memory, or return an error code (potentially with some more
@@ -111,11 +111,11 @@ unsafe fn raw_request(
         headers_len_ptr,
         body_res_ptr,
         body_written_ptr,
-        headers_written_ptr,
         headers_res_ptr,
+        headers_written_ptr,
         status_code_ptr,
         err_ptr,
-        err_len_ptr,
+        err_written_ptr,
     );
 
     // If the returned error is not 0, return it.
@@ -130,8 +130,8 @@ unsafe fn raw_request(
 
         let bytes = Vec::from_raw_parts(
             *err_ptr as *mut u8,
-            *err_len_ptr as usize,
-            *err_len_ptr as usize,
+            *err_written_ptr as usize,
+            *err_written_ptr as usize,
         );
         let msg = std::str::from_utf8(bytes.as_slice())?.to_string();
         return Err(Error::msg(msg));
@@ -156,21 +156,21 @@ unsafe fn raw_request(
 #[link(wasm_import_module = "wasi_experimental_http")]
 extern "C" {
     fn req(
-        url_ptr: *const u32,
-        url_len_ptr: *const u32,
-        method_ptr: *const u32,
-        method_len_ptr: *const u32,
-        req_body_ptr: *const u32,
-        req_body_len_ptr: *const u32,
-        headers_ptr: *const u32,
-        headers_len_ptr: *const u32,
-        body_res_ptr: *const u32,
-        body_written_ptr: *const u32,
-        headers_written_ptr: *const u32,
-        headers_res_ptr: *const u32,
-        status_code_ptr: *const u32,
-        err_ptr: *const u32,
-        err_len_ptr: *const u32,
+        url_ptr: *const u8,
+        url_len_ptr: usize,
+        method_ptr: *const u8,
+        method_len_ptr: usize,
+        req_body_ptr: *const u8,
+        req_body_len_ptr: usize,
+        headers_ptr: *const u8,
+        headers_len_ptr: usize,
+        body_res_ptr: *const *mut u8,
+        body_written_ptr: *mut usize,
+        headers_res_ptr: *const *mut u8,
+        headers_written_ptr: *mut usize,
+        status_code_ptr: *mut u16,
+        err_ptr: *const *mut u8,
+        err_written_ptr: *mut usize,
     ) -> u32;
 }
 
@@ -187,11 +187,16 @@ pub extern "C" fn alloc(len: usize) -> *mut u8 {
 
 /// Get a raw pointer to a `u32` where the runtime can write the
 /// number of bytes written.
-unsafe fn raw_ptr() -> *const u32 {
-    let x: Box<u32> = Box::new(0);
-    let ptr: *const u32 = &*x;
-    // TODO
-    // We need to ensure no memory is leaked by doing this.
+unsafe fn raw_ptr<T: Default>() -> *mut T {
+    let mut x: Box<T> = Box::new(T::default());
+    let ptr: *mut T = &mut *x;
+    std::mem::forget(x);
+    ptr
+}
+
+unsafe fn raw_string_ptr() -> *mut *mut u8 {
+    let mut x: Box<*mut u8> = Box::new(std::ptr::null_mut());
+    let ptr: *mut *mut u8 = &mut *x;
     std::mem::forget(x);
     ptr
 }

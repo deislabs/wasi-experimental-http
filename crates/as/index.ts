@@ -115,48 +115,44 @@ export class RequestBuilder {
 // @ts-ignore: decorator
 @external("wasi_experimental_http", "req")
 @unsafe declare function req(
-        url_ptr: usize,
-        url_len_ptr: usize,
-        method_ptr: usize,
-        method_len_ptr: usize,
-        req_body_ptr: usize,
-        req_body_len_ptr: usize,
-        heders_ptr: usize,
-        headers_len_ptr: usize,
-        body_res_ptr: usize,
-        body_written_ptr: usize,
-        headers_written_ptr: usize,
-        headers_res_ptr: usize,
-        status_code_ptr: usize,
-        err_ptr: usize,
-        err_len_ptr: usize
-    ): u32;
+    url_ptr: usize,
+    url_len_ptr: usize,
+    method_ptr: usize,
+    method_len_ptr: usize,
+    req_body_ptr: usize,
+    req_body_len_ptr: usize,
+    heders_ptr: usize,
+    headers_len_ptr: usize,
+    body_res_ptr: usize,
+    body_written_ptr: usize,
+    headers_written_ptr: usize,
+    headers_res_ptr: usize,
+    status_code_ptr: usize,
+    err_ptr: usize,
+    err_written_ptr: usize
+): u32;
 
 function raw_request(
-        url: string,
-        method: string,
-        headers: string,
-        body: ArrayBuffer
-    ): Response {
+    url: string,
+    method: string,
+    headers: string,
+    body: ArrayBuffer
+): Response {
 
     let url_buf = String.UTF8.encode(url);
-    let url_len_ptr = memory.data(8);
-    store<usize>(url_len_ptr, url_buf.byteLength);
     let url_ptr = changetype<usize>(url_buf);
+    let url_len = url_buf.byteLength;
 
     let method_buf = String.UTF8.encode(method);
-    let method_len_ptr = memory.data(8);
-    store<usize>(method_len_ptr, method_buf.byteLength);
     let method_ptr = changetype<usize>(method_buf);
+    let method_len = method_buf.byteLength;
 
     let headers_buf = String.UTF8.encode(headers);
-    let headers_len_ptr = memory.data(8);
-    store<usize>(headers_len_ptr, headers_buf.byteLength);
     let headers_ptr = changetype<usize>(headers_buf);
+    let headers_len = headers_buf.byteLength;
 
     let req_body_ptr = changetype<usize>(body);
-    let req_body_len_ptr = memory.data(8);
-    store<usize>(req_body_len_ptr, body.byteLength);
+    let req_body_len = body.byteLength;
 
     let body_res_ptr = memory.data(8);
     let body_written_ptr = memory.data(8);
@@ -164,24 +160,24 @@ function raw_request(
     let headers_written_ptr = memory.data(8);
     let status_code_ptr = memory.data(8);
     let err_ptr = memory.data(8);
-    let err_len_ptr = memory.data(8);
+    let err_written_ptr = memory.data(8);
 
     let err = req(
         url_ptr,
-        url_len_ptr,
+        url_len,
         method_ptr,
-        method_len_ptr,
+        method_len,
         req_body_ptr,
-        req_body_len_ptr,
+        req_body_len,
         headers_ptr,
-        headers_len_ptr,
+        headers_len,
         body_res_ptr,
         body_written_ptr,
-        headers_written_ptr,
         headers_res_ptr,
+        headers_written_ptr,
         status_code_ptr,
         err_ptr,
-        err_len_ptr
+        err_written_ptr
     );
 
     if (err != 0) {
@@ -195,7 +191,7 @@ function raw_request(
         }
 
         // An error code was written. Read it, then abort.
-        let err_len = load<usize>(err_len_ptr) as u32;
+        let err_len = load<usize>(err_written_ptr) as u32;
         let err_buf = new ArrayBuffer(err_len);
         memory.copy(changetype<usize>(err_buf), err_ptr, err_len);
         wasi.Console.log("Runtime error: " + String.UTF8.decode(err_buf));
@@ -233,7 +229,7 @@ function headersToString(headers: Map<string, string>): string {
 }
 
 /** The standard HTTP methods. */
-export enum Method{
+export enum Method {
     GET,
     HEAD,
     POST,
@@ -247,7 +243,7 @@ export enum Method{
 
 /** Return the string representation of the HTTP method. */
 function methodEnumToString(m: Method): string {
-    switch(m) {
+    switch (m) {
         case Method.GET:
             return "GET";
         case Method.HEAD:
