@@ -243,7 +243,7 @@ unsafe fn http_parts_from_memory(
 ) -> Result<(String, HeaderMap, Method, Vec<u8>), Error> {
     let url = string_from_memory(&memory, url_ptr, url_len)?;
     let headers = string_from_memory(&memory, headers_ptr, headers_len)?;
-    let headers = wasi_experimental_http::string_to_header_map(headers)?;
+    let headers = wasi_experimental_http::string_to_header_map(&headers)?;
     let method = string_from_memory(&memory, method_ptr, method_len)?;
     let method = Method::from_str(&method)?;
     let req_body = vec_from_memory(&memory, req_body_ptr, req_body_len);

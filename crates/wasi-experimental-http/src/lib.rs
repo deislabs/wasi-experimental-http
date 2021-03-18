@@ -22,23 +22,35 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response<Bytes>, Error> {
     Ok(res.body(Bytes::from(body))?)
 }
 
-// TODO
-// This is a very inneficient way of getting a String from a `HeaderMap`.
 pub fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
-    let mut res: HashMap<String, String> = HashMap::new();
-    for (k, v) in hm.iter() {
-        res.insert(k.to_string(), v.to_str()?.to_string());
+    let mut res = String::new();
+    for (name, value) in hm
+        .iter()
+        .map(|(name, value)| (name.as_str(), std::str::from_utf8(value.as_bytes())))
+    {
+        let value = value?;
+        anyhow::ensure!(
+            !name
+                .chars()
+                .any(|x| x.is_control() || "(),/:;<=>?@[\\]{}".contains(x)),
+            "Invalid header name"
+        );
+        anyhow::ensure!(
+            !value.chars().any(|x| x.is_control()),
+            "Invalid header value"
+        );
+        res.push_str(&format!("{}:{}\n", name, value));
     }
-    let res = serde_json::to_value(&res)?.to_string();
     Ok(res)
 }
 
-// TODO
-// This is a very inneficient way of getting a `HeaderMap` from a `String.
-pub fn string_to_header_map(hm: String) -> Result<HeaderMap, Error> {
-    let hm: HashMap<String, String> = serde_json::from_str(&hm)?;
+pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
-    for (k, v) in hm.iter() {
+    for entry in s.lines() {
+        let (k, v) = entry.split_once(':').ok_or(anyhow::format_err!(
+            "Invalid serialized header: [{}]",
+            entry
+        ))?;
         headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
     }
     Ok(headers)
@@ -46,10 +58,7 @@ pub fn string_to_header_map(hm: String) -> Result<HeaderMap, Error> {
 
 /// Append a header map string to a mutable http::HeaderMap.
 fn append_headers(res_headers: &mut HeaderMap, source: String) -> Result<(), Error> {
-    let hm: HashMap<String, String> = serde_json::from_str(&source)?;
-    for (k, v) in hm.iter() {
-        res_headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
-    }
+    res_headers.extend(string_to_header_map(&source)?);
     Ok(())
 }
 
@@ -213,15 +222,15 @@ mod tests {
         hm.insert("custom-header2", HeaderValue::from_static("custom-value2"));
         let str = header_map_to_string(&hm).unwrap();
         assert_eq!(
-            r#"{"custom-header":"custom-value","custom-header2":"custom-value2"}"#,
+            "custom-header:custom-value\ncustom-header2:custom-value2\n",
             str
         );
     }
 
     #[test]
     fn test_string_to_header_map() {
-        let headers = r#"{"custom-header":"custom-value","custom-header2":"custom-value2"}"#;
-        let header_map = string_to_header_map(headers.to_string()).unwrap();
+        let headers = "custom-header:custom-value\ncustom-header2:custom-value2\n";
+        let header_map = string_to_header_map(headers).unwrap();
         assert_eq!("custom-value", header_map.get("custom-header").unwrap());
         assert_eq!("custom-value2", header_map.get("custom-header2").unwrap());
     }
