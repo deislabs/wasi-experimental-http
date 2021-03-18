@@ -214,17 +214,12 @@ function raw_request(
 
 /** Transform the header map into a string. */
 function headersToString(headers: Map<string, string>): string {
-    let res: string = "{";
+    let res = "";
     let keys = headers.keys() as Array<string>;
     let values = headers.values() as Array<string>;
     for (let index = 0; index < keys.length; ++index) {
-        res += '"' + keys[index] + '"' + ":" + '"' + values[index] + '"';
-        if (index != keys.length - 1) {
-            res += ",";
-        }
+        res += '"' + keys[index] + '"' + ":" + '"' + values[index] + '"\n';
     }
-    res += "}";
-
     return res;
 }
 
