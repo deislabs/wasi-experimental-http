@@ -1,7 +1,7 @@
 use anyhow::Error;
 use bytes::Bytes;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, Response, StatusCode};
-use std::{collections::HashMap, str::FromStr};
+use std::str::FromStr;
 
 /// Create an HTTP request and get an HTTP response.
 /// Currently, both the request and response bodies have to be `Vec<u8>`.
@@ -47,10 +47,12 @@ pub fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
 pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
     for entry in s.lines() {
-        let (k, v) = entry.split_once(':').ok_or(anyhow::format_err!(
+        let mut parts = entry.splitn(2, ':');
+        let k = parts.next().ok_or(anyhow::format_err!(
             "Invalid serialized header: [{}]",
             entry
         ))?;
+        let v = parts.next().unwrap();
         headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
     }
     Ok(headers)
