@@ -186,7 +186,7 @@ function raw_request(
 
         // Error code 1 means no error message was written.
         if (err == 1) {
-            wasi.Console.log("Runtime error: cannot find exorted alloc function or memory");
+            wasi.Console.log("Runtime error: cannot find exported alloc function or memory");
             abort();
         }
 
@@ -218,7 +218,7 @@ function headersToString(headers: Map<string, string>): string {
     let keys = headers.keys() as Array<string>;
     let values = headers.values() as Array<string>;
     for (let index = 0; index < keys.length; ++index) {
-        res += '"' + keys[index] + '"' + ":" + '"' + values[index] + '"\n';
+        res += keys[index] + ":" + values[index] + '\n';
     }
     return res;
 }
