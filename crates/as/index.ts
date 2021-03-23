@@ -1,6 +1,6 @@
 // required to use --abort=as-wasi
 // @ts-ignore
-import * as wasi from "as-wasi";
+import { Console } from "as-wasi";
 
 /** Send an HTTP request and return an HTTP response.
  *
@@ -67,10 +67,10 @@ export class Request {
         .method(Method.POST)
         .body(body)
         .send();
-    wasi.Console.log(res.status.toString())
-    wasi.Console.log(res.headers);
+    Console.log(res.status.toString())
+    Console.log(res.headers);
     let result = String.UTF8.decode(res.body);
-    wasi.Console.log(result);
+    Console.log(result);
  * ```
 */
 export class RequestBuilder {
@@ -174,11 +174,11 @@ function raw_request(
 
     if (err != 0) {
         // Based on the error code, read and log the error.
-        wasi.Console.log("ERROR CODE: " + err.toString());
+        Console.log("ERROR CODE: " + err.toString());
 
         // Error code 1 means no error message was written.
         if (err == 1) {
-            wasi.Console.log("Runtime error: cannot find exported alloc function or memory");
+            Console.log("Runtime error: cannot find exported alloc function or memory");
             abort();
         }
 
@@ -186,7 +186,7 @@ function raw_request(
         let err_len = load<usize>(err_written_ptr) as u32;
         let err_buf = new ArrayBuffer(err_len);
         memory.copy(changetype<usize>(err_buf), err_ptr, err_len);
-        wasi.Console.log("Runtime error: " + String.UTF8.decode(err_buf));
+        Console.log("Runtime error: " + String.UTF8.decode(err_buf));
         abort();
     }
 
@@ -207,9 +207,9 @@ function raw_request(
 /** Transform the header map into a string. */
 function headersToString(headers: Map<string, string>): string {
     let res = "";
-    let keys = headers.keys() as Array<string>;
-    let values = headers.values() as Array<string>;
-    for (let index = 0; index < keys.length; ++index) {
+    let keys = headers.keys() as string[];
+    let values = headers.values() as string[];
+    for (let index = 0, len = keys.length; index < len; ++index) {
         res += keys[index] + ":" + values[index] + '\n';
     }
     return res;
@@ -220,7 +220,7 @@ function stringToHeaderMap(headersStr: string): Map<string, string> {
     let res = new Map<string, string>();
     let parts = headersStr.split("\n");
     // the result of the split contains an empty part as well
-    for(let index = 0; index < parts.length - 1; index++) {
+    for (let index = 0, len = parts.length - 1; index < len; index++) {
         let p = parts[index].split(":");
         res.set(p[0], p[1]);
     }
@@ -242,8 +242,8 @@ export enum Method {
 }
 
 /** Return the string representation of the HTTP method. */
-function methodEnumToString(m: Method): string {
-    switch (m) {
+function methodEnumToString(method: Method): string {
+    switch (method) {
         case Method.GET:
             return "GET";
         case Method.HEAD:
@@ -337,12 +337,4 @@ export enum StatusCode {
     LOOP_DETECTED = 508,
     NOT_EXTENDED = 510,
     NETWORK_AUTHENTICATION_REQUIRED = 511
-}
-
-/** Allocate memory for a new byte array of size `len`
- * and return the offset into the module's linear memory
- * to the start of the block. */
-export function alloc(len: i32): usize {
-    let buf = new ArrayBuffer(len);
-    return changetype<usize>(buf);
 }

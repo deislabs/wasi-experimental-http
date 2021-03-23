@@ -16,13 +16,12 @@ Then, import the package and create a request using the `RequestBuilder`:
 
 ```typescript
 // @ts-ignore
-import * as wasi from "as-wasi";
+import { Console } from "as-wasi";
 import {
   Method,
   RequestBuilder,
   Response,
 } from "@deislabs/wasi-experimental-http";
-export { alloc } from "@deislabs/wasi-experimental-http";
 
 export function post(): void {
   let body = String.UTF8.encode("testing the body");
@@ -37,10 +36,10 @@ export function post(): void {
 }
 
 function print(res: Response): void {
-  wasi.Console.log(res.status.toString());
-  wasi.Console.log(res.headers);
+  Console.log(res.status.toString());
+  Console.log(res.headers);
   let result = String.UTF8.decode(res.body);
-  wasi.Console.log(result);
+  Console.log(result);
 }
 ```
 

@@ -1,7 +1,6 @@
 // @ts-ignore
 import * as wasi from "as-wasi";
 import { Method, RequestBuilder, Response } from "../../crates/as";
-export { alloc } from "../../crates/as";
 
 export function post(): void {
   let body = String.UTF8.encode("testing the body");
