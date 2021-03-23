@@ -23,8 +23,8 @@ wasi_experimental_http_wasmtime::link_http(&mut linker, None)?;
 
 The Wasmtime implementation also enables allowed domains - an optional and
 configurable list of domains or hosts that guest modules are allowed to send
-requests to. If `None` is passed, guest modules are allowed to access any domain
-or host. (Note that the hosts passed MUST have the protocol also specified -
-i.e. `https://my-domain.com`, or `http://192.168.0.1`, and if making requests to
-a subdomain, the subdomain MUST be in the allowed list. See the the library
-tests for more examples).
+requests to. If `None` or an empty vector is passed, guest modules are **NOT**
+allowed to make HTTP requests to any server. (Note that the hosts passed MUST
+have the protocol also specified - i.e. `https://my-domain.com`, or
+`http://192.168.0.1`, and if making requests to a subdomain, the subdomain MUST
+be in the allowed list. See the the library tests for more examples).
