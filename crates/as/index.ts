@@ -14,16 +14,8 @@ export function request(req: Request): Response {
 export class Response {
     /** The HTTP response status code. */
     public status: StatusCode;
-    /** The HTTP response headers.
-     *
-     * TODO
-     *
-     * For now, the response headers are represented
-     * as a string, which makes it difficult to actually
-     * use by a consumer. This should be represented as a
-     * `Map<string, string>`.
-     */
-    public headers: string;
+    /** The HTTP response headers. */
+    public headers: Map<string, string>;
     /** The response body as a byte array.
      *
      * It should be decoded by the consumer accordingly.
@@ -32,7 +24,7 @@ export class Response {
      */
     public body: ArrayBuffer;
 
-    constructor(status: u16, headers: string, body: ArrayBuffer) {
+    constructor(status: u16, headers: Map<string, string>, body: ArrayBuffer) {
         this.status = status;
         this.headers = headers;
         this.body = body;
@@ -186,7 +178,7 @@ function raw_request(
 
         // Error code 1 means no error message was written.
         if (err == 1) {
-            wasi.Console.log("Runtime error: cannot find exorted alloc function or memory");
+            wasi.Console.log("Runtime error: cannot find exported alloc function or memory");
             abort();
         }
 
@@ -209,7 +201,7 @@ function raw_request(
     memory.copy(changetype<usize>(headers_res_buf), load<usize>(headers_res_ptr), headers_length);
     let headers_res = String.UTF8.decode(headers_res_buf);
 
-    return new Response(status, headers_res, body_res);
+    return new Response(status, stringToHeaderMap(headers_res), body_res);
 }
 
 /** Transform the header map into a string. */
@@ -218,8 +210,21 @@ function headersToString(headers: Map<string, string>): string {
     let keys = headers.keys() as Array<string>;
     let values = headers.values() as Array<string>;
     for (let index = 0; index < keys.length; ++index) {
-        res += '"' + keys[index] + '"' + ":" + '"' + values[index] + '"\n';
+        res += keys[index] + ":" + values[index] + '\n';
     }
+    return res;
+}
+
+/** Transform the string representation of the headers into a map. */
+function stringToHeaderMap(headersStr: string): Map<string, string> {
+    let res = new Map<string, string>();
+    let parts = headersStr.split("\n");
+    // the result of the split contains an empty part as well
+    for(let index = 0; index < parts.length - 1; index++) {
+        let p = parts[index].split(":");
+        res.set(p[0], p[1]);
+    }
+
     return res;
 }
 
