@@ -22,6 +22,7 @@ import {
   RequestBuilder,
   Response,
 } from "@deislabs/wasi-experimental-http";
+export { alloc } from "@deislabs/wasi-experimental-http";
 
 export function post(): void {
   let body = String.UTF8.encode("testing the body");

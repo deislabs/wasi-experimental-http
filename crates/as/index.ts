@@ -268,6 +268,14 @@ function methodEnumToString(m: Method): string {
     }
 }
 
+/** Allocate memory for a new byte array of size `len`
+ * and return the offset into the module's linear memory
+ * to the start of the block. */
+export function alloc(len: i32): usize {
+    let buf = new ArrayBuffer(len);
+    return changetype<usize>(buf);
+}
+
 /** The standard HTTP status codes. */
 export enum StatusCode {
     CONTINUE = 100,
