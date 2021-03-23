@@ -14,15 +14,7 @@ export function request(req: Request): Response {
 export class Response {
     /** The HTTP response status code. */
     public status: StatusCode;
-    /** The HTTP response headers.
-     *
-     * TODO
-     *
-     * For now, the response headers are represented
-     * as a string, which makes it difficult to actually
-     * use by a consumer. This should be represented as a
-     * `Map<string, string>`.
-     */
+    /** The HTTP response headers. */
     public headers: Map<string, string>;
     /** The response body as a byte array.
      *
