@@ -1,5 +1,5 @@
 // @ts-ignore
-import * as wasi from "as-wasi";
+import { Console } from "as-wasi";
 import { Method, RequestBuilder, Response } from "../../crates/as";
 
 export function post(): void {
@@ -31,7 +31,7 @@ function check(
   expectedHeadersLen: u32
 ): void {
   if (res.status != expectedStatus) {
-    wasi.Console.write(
+    Console.write(
       "expected status " +
         expectedStatus.toString() +
         " got " +
@@ -42,7 +42,7 @@ function check(
 
   let len = (res.headers.keys() as Array<string>).length;
   if (len != expectedHeadersLen) {
-    wasi.Console.write(
+    Console.write(
       "expected " +
         expectedHeadersLen.toString() +
         " headers, got " +

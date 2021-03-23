@@ -242,8 +242,8 @@ export enum Method {
 }
 
 /** Return the string representation of the HTTP method. */
-function methodEnumToString(method: Method): string {
-    switch (method) {
+function methodEnumToString(m: Method): string {
+    switch (m) {
         case Method.GET:
             return "GET";
         case Method.HEAD:
