@@ -16,7 +16,7 @@ Then, import the package and create a request using the `RequestBuilder`:
 
 ```typescript
 // @ts-ignore
-import { Console } from "as-wasi";
+import * as wasi from "as-wasi";
 import {
   Method,
   RequestBuilder,
@@ -36,10 +36,10 @@ export function post(): void {
 }
 
 function print(res: Response): void {
-  Console.log(res.status.toString());
-  Console.log(res.headers);
+  wasi.Console.log(res.status.toString());
+  wasi.Console.log(res.headers);
   let result = String.UTF8.decode(res.body);
-  Console.log(result);
+  wasi.Console.log(result);
 }
 ```
 

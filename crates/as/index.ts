@@ -1,6 +1,6 @@
 // required to use --abort=as-wasi
 // @ts-ignore
-import { Console } from "as-wasi";
+import * as wasi from "as-wasi";
 
 /** Send an HTTP request and return an HTTP response.
  *
@@ -67,10 +67,10 @@ export class Request {
         .method(Method.POST)
         .body(body)
         .send();
-    Console.log(res.status.toString())
-    Console.log(res.headers);
+    wasi.Console.log(res.status.toString())
+    wasi.Console.log(res.headers);
     let result = String.UTF8.decode(res.body);
-    Console.log(result);
+    wasi.Console.log(result);
  * ```
 */
 export class RequestBuilder {
@@ -174,11 +174,11 @@ function raw_request(
 
     if (err != 0) {
         // Based on the error code, read and log the error.
-        Console.log("ERROR CODE: " + err.toString());
+        wasi.Console.log("ERROR CODE: " + err.toString());
 
         // Error code 1 means no error message was written.
         if (err == 1) {
-            Console.log("Runtime error: cannot find exported alloc function or memory");
+            wasi.Console.log("Runtime error: cannot find exported alloc function or memory");
             abort();
         }
 
@@ -186,7 +186,7 @@ function raw_request(
         let err_len = load<usize>(err_written_ptr) as u32;
         let err_buf = new ArrayBuffer(err_len);
         memory.copy(changetype<usize>(err_buf), err_ptr, err_len);
-        Console.log("Runtime error: " + String.UTF8.decode(err_buf));
+        wasi.Console.log("Runtime error: " + String.UTF8.decode(err_buf));
         abort();
     }
 
