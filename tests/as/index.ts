@@ -12,7 +12,7 @@ export function post(): void {
     .body(body)
     .send();
 
-  checkStatus(res.status);
+  check(res, 200, 7);
 }
 
 export function get(): void {
@@ -20,15 +20,35 @@ export function get(): void {
     .method(Method.GET)
     .send();
 
-  checkStatus(res.status);
+  check(res, 200, 6);
   if (String.UTF8.decode(res.body) != '"OK"') {
-    abort();
     abort();
   }
 }
 
-function checkStatus(status: number): void {
-  if (status != 200) {
+function check(
+  res: Response,
+  expectedStatus: u32,
+  expectedHeadersLen: u32
+): void {
+  if (res.status != expectedStatus) {
+    wasi.Console.write(
+      "expected status " +
+        expectedStatus.toString() +
+        " got " +
+        res.status.toString()
+    );
+    abort();
+  }
+
+  let len = (res.headers.keys() as Array<string>).length;
+  if (len != expectedHeadersLen) {
+    wasi.Console.write(
+      "expected " +
+        expectedHeadersLen.toString() +
+        " headers, got " +
+        len.toString()
+    );
     abort();
   }
 }
