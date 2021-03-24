@@ -53,7 +53,8 @@ let wasi = Wasi::new(&store, ctx);
 wasi.add_to_linker(&mut linker)?;
 
 // link the experimental HTTP support
-wasi_experimental_http_wasmtime::link_http(&mut linker, None)?;
+let allowed_hosts = Some(vec!["https://postman-echo.com".to_string()]);
+wasi_experimental_http_wasmtime::link_http(&mut linker, allowed_hosts)?;
 ```
 
 Then, executing the module above will send the HTTP request and write the
@@ -79,13 +80,13 @@ wasi_experimental_http::write_guest_memory:: written 374 bytes
 "200 OK"
 ```
 
-The Wasmtime implementation also enables allowed domains - an optional and
+The Wasmtime implementation also enables allowed hosts - an optional and
 configurable list of domains or hosts that guest modules are allowed to send
-requests to. If `None` is passed, guest modules are allowed to access any domain
-or host. (Note that the hosts passed MUST have the protocol also specified -
-i.e. `https://my-domain.com`, or `http://192.168.0.1`, and if making requests to
-a subdomain, the subdomain MUST be in the allowed list. See the the library
-tests for more examples).
+requests to. If `None` or an empty vector is passed, guest modules are **NOT**
+allowed to make HTTP requests to any server. (Note that the hosts passed MUST
+have the protocol also specified - i.e. `https://my-domain.com`, or
+`http://192.168.0.1`, and if making requests to a subdomain, the subdomain MUST
+be in the allowed list. See the the library tests for more examples).
 
 Note that the Wasmtime version currently supported is
 [0.24](https://docs.rs/wasmtime/0.24.0/wasmtime/).

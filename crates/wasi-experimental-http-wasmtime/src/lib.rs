@@ -11,7 +11,7 @@ use wasmtime::*;
 const ALLOC_FN: &str = "alloc";
 const MEMORY: &str = "memory";
 
-pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> Result<(), Error> {
+pub fn link_http(linker: &mut Linker, allowed_hosts: Option<Vec<String>>) -> Result<(), Error> {
     linker.func(
         "wasi_experimental_http",
         "req",
@@ -93,7 +93,7 @@ pub fn link_http(linker: &mut Linker, allowed_domains: Option<Vec<String>>) -> R
                 }
             };
 
-            match is_allowed(&url, allowed_domains.as_ref()) {
+            match is_allowed(&url, allowed_hosts.as_ref()) {
                 Ok(e) => match e {
                     true => {}
                     false => {
@@ -288,7 +288,7 @@ fn is_allowed(url: &str, allowed_domains: Option<&Vec<String>>) -> Result<bool, 
             let a: Vec<&str> = allowed.iter().map(|u| u.host_str().unwrap()).collect();
             Ok(a.contains(&url_host.as_str()))
         }
-        None => Ok(true),
+        None => Ok(false),
     }
 }
 

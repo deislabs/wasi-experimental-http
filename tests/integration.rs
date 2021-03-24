@@ -11,12 +11,14 @@ mod tests {
     // in order to make sure both scenarios are working.
 
     #[test]
-    fn test_all_allowed() {
+    #[should_panic]
+    fn test_none_allowed() {
         setup_tests(None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_async_all_allowed() {
+    #[should_panic]
+    async fn test_async_none_allowed() {
         setup_tests(None);
     }
 
