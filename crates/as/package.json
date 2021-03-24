@@ -3,7 +3,7 @@
   "main": "index.ts",
   "ascMain": "index.ts",
   "types": "index.ts",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Experimental HTTP library for AssemblyScript",
   "author": {
     "name": "The DeisLabs team at Microsoft"
@@ -21,7 +21,7 @@
     "asbuild": "asc index.ts -b build/optimized.wasm --use abort=wasi_abort --debug"
   },
   "dependencies": {
-    "as-wasi": "0.2.0",
+    "as-wasi": "0.4.4",
     "assemblyscript": "^0.18.12"
   }
 }
