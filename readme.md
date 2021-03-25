@@ -125,7 +125,6 @@ export function _start_(): void {
   modules have to wait until the entire body has been written by the runtime
   before reading it.
 - request and response bodies are [`Bytes`](https://docs.rs/bytes/1.0.1/bytes/).
-- handling headers in Rust is currently very inefficient.
 - there are no WITX definitions, which means we have to manually keep the host
   call and guest implementation in sync. Adding WITX definitions could also
   enable support for other WASI runtimes.
