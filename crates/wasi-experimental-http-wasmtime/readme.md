@@ -7,7 +7,7 @@ Experimental HTTP library for WebAssembly in Wasmtime
 ### Adding support to a Wasmtime runtime
 
 The easiest way to add support is by using the
-[Wasmtime linker](https://docs.rs/wasmtime/0.24.0/wasmtime/struct.Linker.html):
+[Wasmtime linker](https://docs.rs/wasmtime/0.25.0/wasmtime/struct.Linker.html):
 
 ```rust
 let store = Store::default();
@@ -18,7 +18,8 @@ let wasi = Wasi::new(&store, ctx);
 wasi.add_to_linker(&mut linker)?;
 
 // link the experimental HTTP support
-wasi_experimental_http_wasmtime::link_http(&mut linker, None)?;
+let http = Http::new(None);
+http.add_to_linker(&mut linker)?;
 ```
 
 The Wasmtime implementation also enables allowed domains - an optional and

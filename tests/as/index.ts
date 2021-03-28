@@ -1,7 +1,6 @@
 // @ts-ignore
 import { Console } from "as-wasi";
 import { Method, RequestBuilder, Response } from "../../crates/as";
-export { alloc } from "../../crates/as";
 
 export function post(): void {
   let body = String.UTF8.encode("testing the body");
@@ -12,7 +11,8 @@ export function post(): void {
     .body(body)
     .send();
 
-  check(res, 200, 7);
+  check(res, 200, "Content-Type");
+  res.close();
 }
 
 export function get(): void {
@@ -20,35 +20,31 @@ export function get(): void {
     .method(Method.GET)
     .send();
 
-  check(res, 200, 6);
-  if (String.UTF8.decode(res.body) != '"OK"') {
+  check(res, 200, "Content-Type");
+  let body = res.bodyReadAll();
+  if (String.UTF8.decode(body.buffer) != '"OK"') {
     abort();
   }
+  res.close();
 }
 
 function check(
   res: Response,
   expectedStatus: u32,
-  expectedHeadersLen: u32
+  expectedHeader: string
 ): void {
   if (res.status != expectedStatus) {
     Console.write(
       "expected status " +
-        expectedStatus.toString() +
-        " got " +
-        res.status.toString()
+      expectedStatus.toString() +
+      " got " +
+      res.status.toString()
     );
     abort();
   }
 
-  let len = (res.headers.keys() as Array<string>).length;
-  if (len != expectedHeadersLen) {
-    Console.write(
-      "expected " +
-        expectedHeadersLen.toString() +
-        " headers, got " +
-        len.toString()
-    );
+  let headerValue = res.headerGet(expectedHeader);
+  if (!headerValue) {
     abort();
   }
 }

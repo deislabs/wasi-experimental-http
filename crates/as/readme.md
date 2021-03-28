@@ -22,7 +22,6 @@ import {
   RequestBuilder,
   Response,
 } from "@deislabs/wasi-experimental-http";
-export { alloc } from "@deislabs/wasi-experimental-http";
 
 export function post(): void {
   let body = String.UTF8.encode("testing the body");
@@ -32,14 +31,13 @@ export function post(): void {
     .body(body)
     .send();
 
-  let result = String.UTF8.decode(res.body);
   print(res);
 }
 
 function print(res: Response): void {
   Console.log(res.status.toString());
-  Console.log(res.headers);
-  let result = String.UTF8.decode(res.body);
+  Console.log(res.getHeader("Content-Type"));
+  let result = String.UTF8.decode(res.bodyReadAll().buffer);
   Console.log(result);
 }
 ```

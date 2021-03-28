@@ -29,10 +29,10 @@ pub extern "C" fn _start() {
     let req = req.body(Some(b)).unwrap();
 
     let res = wasi_experimental_http::request(req).expect("cannot make request");
-    let str = std::str::from_utf8(&res.body()).unwrap().to_string();
-    println!("{:#?}", res.headers());
+    let str = std::str::from_utf8(&res.body_read_all()).unwrap().to_string();
+    println!("{:#?}", res.header_get("Content-Type"));
     println!("{}", str);
-    println!("{:#?}", res.status().to_string());
+    println!("{:#?}", res.status_code);
 }
 ```
 
@@ -128,9 +128,6 @@ export function _start_(): void {
 - there are no WITX definitions, which means we have to manually keep the host
   call and guest implementation in sync. Adding WITX definitions could also
   enable support for other WASI runtimes.
-- the `alloc` function in AssemblyScript has to be re-exported in order for the
-  runtime to use it. There probably is a decorator or Binaryen setting to avoid
-  removing it, but for now this has to be re-exported.
 - this library does not aim to add support for running HTTP servers in
   WebAssembly.
 
