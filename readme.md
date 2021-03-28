@@ -1,7 +1,7 @@
 # `wasi-experimental-http`
 
 This is an experiment intended to provide a _temporary_ workaround until the
-WASI networking API is stable, and is compatible with [Wasmtime v0.24][24] by
+WASI networking API is stable, and is compatible with [Wasmtime v0.25][24] by
 using the `wasi_experiemental_http_wasmtime` crate. We expect that once [the
 WASI sockets proposal][sockets-wip] gets adopted and implemented in language
 toolchains, the need for this library will vanish.
@@ -42,7 +42,7 @@ update a Wasmtime runtime with the experimental HTTP support.
 ### Adding support to a Wasmtime runtime
 
 The easiest way to add support is by using the
-[Wasmtime linker](https://docs.rs/wasmtime/0.24.0/wasmtime/struct.Linker.html):
+[Wasmtime linker](https://docs.rs/wasmtime/0.25.0/wasmtime/struct.Linker.html):
 
 ```rust
 let store = Store::default();
@@ -89,7 +89,7 @@ have the protocol also specified - i.e. `https://my-domain.com`, or
 be in the allowed list. See the the library tests for more examples).
 
 Note that the Wasmtime version currently supported is
-[0.24](https://docs.rs/wasmtime/0.24.0/wasmtime/).
+[0.25](https://docs.rs/wasmtime/0.25.0/wasmtime/).
 
 ### Sending HTTP requests from AssemblyScript
 
@@ -141,5 +141,5 @@ For more information see the
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any
 additional questions or comments.
 
-[24]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.24.0
+[24]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.25.0
 [sockets-wip]: https://github.com/WebAssembly/WASI/pull/312
