@@ -26,7 +26,7 @@ struct Response {
 }
 
 #[derive(Default)]
-pub struct State {
+struct State {
     responses: HashMap<WasiHandle, Response>,
     current_handle: WasiHandle,
 }
@@ -231,14 +231,19 @@ impl HostCalls {
     }
 }
 
+/// Experiment HTTP extension object for wasmtime.
 pub struct Http {
     state: Rc<RefCell<State>>,
     allowed_hosts: Rc<Option<Vec<String>>>,
 }
 
 impl Http {
+    /// Module the HTTP extension is going to be defined as.
     pub const MODULE: &'static str = "wasi_experimental_http";
 
+    /// Create a new HTTP extension object.
+    /// `allowed_hosts` may be `None` (no outbound connections allowed)
+    /// or a list of allowed host names.
     pub fn new(allowed_hosts: Option<Vec<String>>) -> Result<Self, Error> {
         let state = Rc::new(RefCell::new(State::default()));
         let allowed_hosts = Rc::new(allowed_hosts);
@@ -248,6 +253,7 @@ impl Http {
         })
     }
 
+    /// Register the module with the wasmtime linker.
     pub fn add_to_linker(&self, linker: &mut Linker) -> Result<(), Error> {
         let st = self.state.clone();
         linker.func(

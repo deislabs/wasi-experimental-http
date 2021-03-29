@@ -3,8 +3,9 @@ use bytes::Bytes;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, StatusCode};
 use std::str::FromStr;
 
+/// HTTP errors
 #[derive(Debug, thiserror::Error)]
-enum HttpError {
+pub enum HttpError {
     #[error("Invalid handle")]
     InvalidHandle,
     #[error("Memory not found")]
@@ -53,8 +54,9 @@ fn raw_err_check(e: u32) -> Result<(), HttpError> {
     }
 }
 
-pub type Handle = u32;
+type Handle = u32;
 
+/// A HTTP response.
 pub struct Response {
     handle: Handle,
     pub status_code: StatusCode,
@@ -67,6 +69,10 @@ impl Drop for Response {
 }
 
 impl Response {
+    /// Read a response body in a streaming fashion.
+    /// `buf` is an arbitrary large buffer, that may be partially filled after each call.
+    /// The function returns the actual number of bytes that were written, and `0`
+    /// when the end of the stream has been reached.
     pub fn body_read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let mut read: usize = 0;
         let ret = unsafe { raw::body_read(self.handle, buf.as_mut_ptr(), buf.len(), &mut read) };
@@ -74,6 +80,7 @@ impl Response {
         Ok(read)
     }
 
+    /// Read the entire body until the end of the stream.
     pub fn body_read_all(&mut self) -> Result<Vec<u8>, Error> {
         let mut chunk = [0u8; 4096];
         let mut v = vec![];
@@ -86,6 +93,8 @@ impl Response {
         }
     }
 
+    /// Get the value of the `name` header.
+    /// Returns `HttpError::HeaderNotFound` if no such header was found.
     pub fn header_get(&self, name: &str) -> Result<String, Error> {
         let mut capacity = 4096;
         loop {
@@ -116,6 +125,9 @@ impl Response {
     }
 }
 
+/// Send a HTTP request.
+/// The function returns a `Response` object, that includes the status,
+/// as well as methods to access the headers and the body.
 #[tracing::instrument]
 pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
     let url = req.uri().to_string();
@@ -150,6 +162,7 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
     })
 }
 
+/// Encode a header map as a string.
 pub fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
     let mut res = String::new();
     for (name, value) in hm
@@ -172,6 +185,7 @@ pub fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
     Ok(res)
 }
 
+/// Decode a header map from a string.
 pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
     for entry in s.lines() {
