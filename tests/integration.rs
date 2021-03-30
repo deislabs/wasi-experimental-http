@@ -3,7 +3,7 @@ mod tests {
     use anyhow::Error;
     use std::time::Instant;
     use wasi_cap_std_sync::WasiCtxBuilder;
-    use wasi_experimental_http_wasmtime::Http;
+    use wasi_experimental_http_wasmtime::HttpCtx;
     use wasmtime::*;
     use wasmtime_wasi::Wasi;
 
@@ -94,7 +94,7 @@ mod tests {
         let wasi = Wasi::new(&store, ctx);
         wasi.add_to_linker(&mut linker)?;
         // Link `wasi_experimental_http`
-        let http = Http::new(allowed_domains)?;
+        let http = HttpCtx::new(allowed_domains)?;
         http.add_to_linker(&mut linker)?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;

@@ -56,12 +56,14 @@ fn raw_err_check(e: u32) -> Result<(), HttpError> {
 
 type Handle = u32;
 
-/// A HTTP response.
+/// An HTTP response.
 pub struct Response {
     handle: Handle,
     pub status_code: StatusCode,
 }
 
+/// Automatically call `close` to remove the current handle
+/// when the response object goes out of scope.
 impl Drop for Response {
     fn drop(&mut self) {
         unsafe { raw::close(self.handle) };
@@ -82,6 +84,9 @@ impl Response {
 
     /// Read the entire body until the end of the stream.
     pub fn body_read_all(&mut self) -> Result<Vec<u8>, Error> {
+        // TODO(@radu-matei)
+        //
+        // Do we want to have configurable chunk sizes?
         let mut chunk = [0u8; 4096];
         let mut v = vec![];
         loop {
@@ -97,6 +102,22 @@ impl Response {
     /// Returns `HttpError::HeaderNotFound` if no such header was found.
     pub fn header_get(&self, name: &str) -> Result<String, Error> {
         let mut capacity = 4096;
+        // Attempt to read the header value.
+        // If the value is too large, double the capacity and
+        // try again.
+
+        // TODO(@radu-matei)
+        //
+        // The HTTP spec does not limit the maximum size of a header value.
+        // While in theory known servers limit this value (anywhere from 4K to 48K), a
+        // maliciously constructed web server could make the guest continue to allocate, and so
+        // grow the instance's linear memory until it reaches the limit of possibly allocable
+        // memory by the Wasm VM.
+        //
+        // This can happen for response bodies as well, but using `body_read` we can control
+        // the number of bytes we read at a time, while in this scenario, we attempt to
+        // double the allocated size and retry.
+        // At the least there should be a hard limit to the size of the capacity where we error out.
         loop {
             let mut written: usize = 0;
             let mut buf = vec![0u8; capacity];
@@ -125,7 +146,7 @@ impl Response {
     }
 }
 
-/// Send a HTTP request.
+/// Send an HTTP request.
 /// The function returns a `Response` object, that includes the status,
 /// as well as methods to access the headers and the body.
 #[tracing::instrument]
@@ -190,6 +211,7 @@ pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
     for entry in s.lines() {
         let mut parts = entry.splitn(2, ':');
+        #[allow(clippy::clippy::clippy::or_fun_call)]
         let k = parts.next().ok_or(anyhow::format_err!(
             "Invalid serialized header: [{}]",
             entry

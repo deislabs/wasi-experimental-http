@@ -16,7 +16,7 @@ export class Response {
     public status: StatusCode;
 
     /** The response handle */
-    public handle: u32;
+    handle: u32;
 
     constructor(status: u16, handle: u32) {
         this.status = status;
@@ -64,7 +64,6 @@ export class Response {
 
     public close(): void {
         close(this.handle);
-
     }
 }
 
@@ -223,7 +222,7 @@ function raw_request(
         // Based on the error code, read and log the error.
         Console.log("ERROR CODE: " + err.toString());
 
-        // An error code was written. Read it, then abort.       
+        // An error code was written. Read it, then abort.
         Console.log("Runtime error: " + err.toString());
         abort();
     }
