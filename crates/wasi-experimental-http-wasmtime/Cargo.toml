@@ -14,10 +14,11 @@ bytes = "1"
 futures = "0.3"
 http = "0.2"
 reqwest = { version = "0.11", default-features = true, features = ["json", "blocking"] }
-tokio = { version = "1.1", features = ["full"] }
-url = "2.0"
-wasmtime = "0.24"
-wasmtime-wasi = "0.24"
-wasi-common = "0.24"
+thiserror = "1.0"
+tokio = { version = "1.4.0", features = ["full"] }
+url = "2.2.1"
+wasmtime = "0.25"
+wasmtime-wasi = "0.25"
+wasi-common = "0.25"
 wasi-experimental-http = { version = "0.2", path = "../wasi-experimental-http" }
 tracing = { version = "0.1", features = ["log"] }

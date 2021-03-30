@@ -1,7 +1,7 @@
 # `wasi-experimental-http`
 
 This is an experiment intended to provide a _temporary_ workaround until the
-WASI networking API is stable, and is compatible with [Wasmtime v0.24][24] by
+WASI networking API is stable, and is compatible with [Wasmtime v0.25][24] by
 using the `wasi_experiemental_http_wasmtime` crate. We expect that once [the
 WASI sockets proposal][sockets-wip] gets adopted and implemented in language
 toolchains, the need for this library will vanish.
@@ -29,10 +29,10 @@ pub extern "C" fn _start() {
     let req = req.body(Some(b)).unwrap();
 
     let res = wasi_experimental_http::request(req).expect("cannot make request");
-    let str = std::str::from_utf8(&res.body()).unwrap().to_string();
-    println!("{:#?}", res.headers());
+    let str = std::str::from_utf8(&res.body_read_all()).unwrap().to_string();
+    println!("{:#?}", res.header_get("Content-Type"));
     println!("{}", str);
-    println!("{:#?}", res.status().to_string());
+    println!("{:#?}", res.status_code);
 }
 ```
 
@@ -42,7 +42,7 @@ update a Wasmtime runtime with the experimental HTTP support.
 ### Adding support to a Wasmtime runtime
 
 The easiest way to add support is by using the
-[Wasmtime linker](https://docs.rs/wasmtime/0.24.0/wasmtime/struct.Linker.html):
+[Wasmtime linker](https://docs.rs/wasmtime/0.25.0/wasmtime/struct.Linker.html):
 
 ```rust
 let store = Store::default();
@@ -89,7 +89,7 @@ have the protocol also specified - i.e. `https://my-domain.com`, or
 be in the allowed list. See the the library tests for more examples).
 
 Note that the Wasmtime version currently supported is
-[0.24](https://docs.rs/wasmtime/0.24.0/wasmtime/).
+[0.25](https://docs.rs/wasmtime/0.25.0/wasmtime/).
 
 ### Sending HTTP requests from AssemblyScript
 
@@ -128,9 +128,6 @@ export function _start_(): void {
 - there are no WITX definitions, which means we have to manually keep the host
   call and guest implementation in sync. Adding WITX definitions could also
   enable support for other WASI runtimes.
-- the `alloc` function in AssemblyScript has to be re-exported in order for the
-  runtime to use it. There probably is a decorator or Binaryen setting to avoid
-  removing it, but for now this has to be re-exported.
 - this library does not aim to add support for running HTTP servers in
   WebAssembly.
 
@@ -144,5 +141,5 @@ For more information see the
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any
 additional questions or comments.
 
-[24]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.24.0
+[24]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.25.0
 [sockets-wip]: https://github.com/WebAssembly/WASI/pull/312

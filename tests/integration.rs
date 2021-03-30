@@ -3,7 +3,7 @@ mod tests {
     use anyhow::Error;
     use std::time::Instant;
     use wasi_cap_std_sync::WasiCtxBuilder;
-    use wasi_experimental_http_wasmtime::link_http;
+    use wasi_experimental_http_wasmtime::Http;
     use wasmtime::*;
     use wasmtime_wasi::Wasi;
 
@@ -66,7 +66,9 @@ mod tests {
     /// Execute the module's `_start` function.
     fn run_tests(instance: &Instance, test_funcs: &[&str]) -> Result<(), Error> {
         for func_name in test_funcs.iter() {
-            let func = instance.get_func(func_name).expect("cannot find function");
+            let func = instance
+                .get_func(func_name)
+                .unwrap_or_else(|| panic!("cannot find function {}", func_name));
             func.call(&[])?;
         }
 
@@ -91,8 +93,9 @@ mod tests {
 
         let wasi = Wasi::new(&store, ctx);
         wasi.add_to_linker(&mut linker)?;
-        // Link `wasi_experimental_http::req`.
-        link_http(&mut linker, allowed_domains)?;
+        // Link `wasi_experimental_http`
+        let http = Http::new(allowed_domains)?;
+        http.add_to_linker(&mut linker)?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;
 
