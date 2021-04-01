@@ -17,7 +17,7 @@ pub enum HttpError {
     #[error("Header not found")]
     HeaderNotFound,
     #[error("UTF-8 error")]
-    UTF8Error,
+    Utf8Error,
     #[error("Destination not allowed")]
     DestinationNotAllowed,
     #[error("Invalid method")]
@@ -42,7 +42,7 @@ fn raw_err_check(e: u32) -> Result<(), HttpError> {
         3 => Err(HttpError::MemoryAccessError),
         4 => Err(HttpError::BufferTooSmall),
         5 => Err(HttpError::HeaderNotFound),
-        6 => Err(HttpError::UTF8Error),
+        6 => Err(HttpError::Utf8Error),
         7 => Err(HttpError::DestinationNotAllowed),
         8 => Err(HttpError::InvalidMethod),
         9 => Err(HttpError::InvalidEncoding),
