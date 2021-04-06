@@ -7,7 +7,7 @@ Experimental HTTP library for WebAssembly in Wasmtime
 ### Adding support to a Wasmtime runtime
 
 The easiest way to add support is by using the
-[Wasmtime linker](https://docs.rs/wasmtime/0.25.0/wasmtime/struct.Linker.html):
+[Wasmtime linker](https://docs.rs/wasmtime/0.26.0/wasmtime/struct.Linker.html):
 
 ```rust
 let store = Store::default();
