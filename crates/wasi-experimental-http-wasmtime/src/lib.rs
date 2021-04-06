@@ -45,7 +45,7 @@ enum HttpError {
     #[error("Header not found")]
     HeaderNotFound,
     #[error("UTF-8 error")]
-    UTF8Error(#[from] std::str::Utf8Error),
+    Utf8Error(#[from] std::str::Utf8Error),
     #[error("Destination not allowed")]
     DestinationNotAllowed(String),
     #[error("Invalid method")]
@@ -70,7 +70,7 @@ impl From<HttpError> for u32 {
             HttpError::MemoryAccessError(_) => 3,
             HttpError::BufferTooSmall => 4,
             HttpError::HeaderNotFound => 5,
-            HttpError::UTF8Error(_) => 6,
+            HttpError::Utf8Error(_) => 6,
             HttpError::DestinationNotAllowed(_) => 7,
             HttpError::InvalidMethod => 8,
             HttpError::InvalidEncoding => 9,
@@ -164,6 +164,7 @@ impl HostCalls {
     fn req(
         st: Rc<RefCell<State>>,
         allowed_hosts: Option<&[String]>,
+        max_concurrent_requests: Option<u32>,
         caller: Caller<'_>,
         url_ptr: u32,
         url_len: u32,
@@ -178,6 +179,14 @@ impl HostCalls {
     ) -> Result<(), HttpError> {
         let span = tracing::trace_span!("req");
         let _enter = span.enter();
+
+        let mut st = st.borrow_mut();
+        if let Some(max) = max_concurrent_requests {
+            if st.responses.len() > (max - 1) as usize {
+                return Err(HttpError::TooManySessions);
+            }
+        };
+
         let memory = memory_get(caller)?;
         // Read the request parts from the module's linear memory and check early if
         // the guest is allowed to make a request to the given URL.
@@ -220,7 +229,6 @@ impl HostCalls {
         // TODO (@radu-matei)
         //
         // Can we work around having to maintain the current handle?
-        let mut st = st.borrow_mut();
         let initial_handle = st.current_handle;
         while st.responses.get(&st.current_handle).is_some() {
             st.current_handle += 1;
@@ -240,6 +248,7 @@ impl HostCalls {
 pub struct HttpCtx {
     state: Rc<RefCell<State>>,
     allowed_hosts: Rc<Option<Vec<String>>>,
+    max_concurrent_requests: Option<u32>,
 }
 
 impl HttpCtx {
@@ -249,12 +258,16 @@ impl HttpCtx {
     /// Create a new HTTP extension object.
     /// `allowed_hosts` may be `None` (no outbound connections allowed)
     /// or a list of allowed host names.
-    pub fn new(allowed_hosts: Option<Vec<String>>) -> Result<Self, Error> {
+    pub fn new(
+        allowed_hosts: Option<Vec<String>>,
+        max_concurrent_requests: Option<u32>,
+    ) -> Result<Self, Error> {
         let state = Rc::new(RefCell::new(State::default()));
         let allowed_hosts = Rc::new(allowed_hosts);
         Ok(HttpCtx {
             state,
             allowed_hosts,
+            max_concurrent_requests,
         })
     }
 
@@ -326,6 +339,7 @@ impl HttpCtx {
 
         let st = self.state.clone();
         let allowed_hosts = self.allowed_hosts.clone();
+        let max_concurrent_requests = self.max_concurrent_requests;
         linker.func(
             Self::MODULE,
             "req",
@@ -344,6 +358,7 @@ impl HttpCtx {
                 match HostCalls::req(
                     st.clone(),
                     allowed_hosts.as_deref(),
+                    max_concurrent_requests,
                     caller,
                     url_ptr,
                     url_len,

@@ -31,3 +31,18 @@ pub extern "C" fn post() {
     assert_eq!(res.status_code, 200);
     assert!(!res.header_get("content-type").unwrap().is_empty());
 }
+
+#[allow(unused_variables)]
+#[no_mangle]
+pub extern "C" fn concurrent() {
+    let url = "https://api.brigade.sh/healthz".to_string();
+    // the responses are unused to avoid dropping them.
+    let req1 = make_req(url.clone());
+    let req2 = make_req(url.clone());
+    let req3 = make_req(url);
+}
+
+fn make_req(url: String) -> wasi_experimental_http::Response {
+    let req = http::request::Builder::new().uri(&url).body(None).unwrap();
+    wasi_experimental_http::request(req).expect("cannot make get request")
+}

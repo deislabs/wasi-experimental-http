@@ -13,44 +13,85 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_none_allowed() {
-        setup_tests(None);
+        setup_tests(None, None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     #[should_panic]
     async fn test_async_none_allowed() {
-        setup_tests(None);
+        setup_tests(None, None);
     }
 
     #[test]
     #[should_panic]
     fn test_without_allowed_domains() {
-        setup_tests(Some(vec![]));
+        setup_tests(Some(vec![]), None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     #[should_panic]
     async fn test_async_without_allowed_domains() {
-        setup_tests(Some(vec![]));
+        setup_tests(Some(vec![]), None);
     }
 
     #[test]
     fn test_with_allowed_domains() {
-        setup_tests(Some(vec![
-            "https://api.brigade.sh".to_string(),
-            "https://postman-echo.com".to_string(),
-        ]));
+        setup_tests(
+            Some(vec![
+                "https://api.brigade.sh".to_string(),
+                "https://postman-echo.com".to_string(),
+            ]),
+            None,
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_async_with_allowed_domains() {
-        setup_tests(Some(vec![
-            "https://api.brigade.sh".to_string(),
-            "https://postman-echo.com".to_string(),
-        ]));
+        setup_tests(
+            Some(vec![
+                "https://api.brigade.sh".to_string(),
+                "https://postman-echo.com".to_string(),
+            ]),
+            None,
+        );
     }
 
-    fn setup_tests(allowed_domains: Option<Vec<String>>) {
+    #[test]
+    #[should_panic]
+    fn test_concurrent_requests_rust() {
+        let module = "target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string();
+        make_concurrent_requests(module);
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    #[should_panic]
+    async fn test_async_concurrent_requests_rust() {
+        let module = "target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string();
+        make_concurrent_requests(module);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_concurrent_requests_as() {
+        let module = "tests/as/build/optimized.wasm".to_string();
+        make_concurrent_requests(module);
+    }
+
+    fn make_concurrent_requests(module: String) {
+        let func = "concurrent";
+        let instance = create_instance(
+            module,
+            Some(vec!["https://api.brigade.sh".to_string()]),
+            Some(2),
+        )
+        .unwrap();
+        let func = instance
+            .get_func(func)
+            .unwrap_or_else(|| panic!("cannot find function {}", func));
+
+        func.call(&[]).unwrap();
+    }
+
+    fn setup_tests(allowed_domains: Option<Vec<String>>, max_concurrent_requests: Option<u32>) {
         let modules = vec![
             "target/wasm32-wasi/release/simple_wasi_http_tests.wasm",
             "tests/as/build/optimized.wasm",
@@ -58,7 +99,12 @@ mod tests {
         let test_funcs = vec!["get", "post"];
 
         for module in modules {
-            let instance = create_instance(module.to_string(), allowed_domains.clone()).unwrap();
+            let instance = create_instance(
+                module.to_string(),
+                allowed_domains.clone(),
+                max_concurrent_requests,
+            )
+            .unwrap();
             run_tests(&instance, &test_funcs).unwrap();
         }
     }
@@ -80,6 +126,7 @@ mod tests {
     fn create_instance(
         filename: String,
         allowed_domains: Option<Vec<String>>,
+        max_concurrent_requests: Option<u32>,
     ) -> Result<Instance, Error> {
         let start = Instant::now();
         let store = Store::default();
@@ -94,7 +141,7 @@ mod tests {
         let wasi = Wasi::new(&store, ctx);
         wasi.add_to_linker(&mut linker)?;
         // Link `wasi_experimental_http`
-        let http = HttpCtx::new(allowed_domains)?;
+        let http = HttpCtx::new(allowed_domains, max_concurrent_requests)?;
         http.add_to_linker(&mut linker)?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;

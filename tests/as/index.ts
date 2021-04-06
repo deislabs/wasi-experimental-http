@@ -28,6 +28,18 @@ export function get(): void {
   res.close();
 }
 
+export function concurrent(): void {
+  let req1 = makeReq();
+  let req2 = makeReq();
+  let req3 = makeReq();
+}
+
+function makeReq(): Response {
+  return new RequestBuilder("https://api.brigade.sh/healthz")
+    .method(Method.GET)
+    .send();
+}
+
 function check(
   res: Response,
   expectedStatus: u32,
@@ -36,9 +48,9 @@ function check(
   if (res.status != expectedStatus) {
     Console.write(
       "expected status " +
-      expectedStatus.toString() +
-      " got " +
-      res.status.toString()
+        expectedStatus.toString() +
+        " got " +
+        res.status.toString()
     );
     abort();
   }
