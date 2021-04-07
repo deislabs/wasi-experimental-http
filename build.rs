@@ -6,6 +6,7 @@ const AS_EXAMPLE: &str = "as";
 
 const RUST_GUEST_RAW: &str = "crates/wasi-experimental-http/src/raw.rs";
 const AS_GUEST_RAW: &str = "crates/as/raw.ts";
+const MD_GUEST_API: &str = "witx/readme.md";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -17,6 +18,7 @@ fn main() {
     check_witx_codegen();
     generate_from_witx("rust".to_string(), RUST_GUEST_RAW.to_string());
     generate_from_witx("assemblyscript".to_string(), AS_GUEST_RAW.to_string());
+    generate_from_witx("markdown".to_string(), MD_GUEST_API.to_string());
 
     cargo_build_example(TESTS_DIR.to_string(), RUST_EXAMPLE.to_string());
     as_build_example(TESTS_DIR.to_string(), AS_EXAMPLE.to_string());
