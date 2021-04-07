@@ -41,7 +41,7 @@ pub enum HttpError {
     UnknownError,
 }
 
-// TODO
+// TODO(@radu-matei)
 //
 // This error is not really used in the public API.
 impl From<raw::Error> for HttpError {
@@ -89,8 +89,6 @@ impl Response {
     /// when the end of the stream has been reached.
     pub fn body_read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let read = raw::body_read(self.handle, buf.as_mut_ptr(), buf.len())?;
-
-        // raw_err_check(ret)?;
         Ok(read)
     }
 
@@ -180,8 +178,6 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
         body.as_ptr(),
         body.len(),
     )?;
-
-    // raw_err_check(ret)?;
     Ok(Response {
         handle,
         status_code: StatusCode::from_u16(status_code)?,
