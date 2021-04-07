@@ -88,6 +88,9 @@ impl HostCalls {
     /// Remove the current handle from the state.
     /// Depending on the implementation, guest modules might
     /// have to manually call `close`.
+    // TODO (@radu-matei)
+    // Fix the clippy warning.
+    #[allow(clippy::unnecessary_wraps)]
     fn close(
         st: Rc<RefCell<State>>,
         _caller: Caller<'_>,
