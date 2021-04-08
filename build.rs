@@ -15,7 +15,6 @@ fn main() {
     println!("cargo:rerun-if-changed=tests/as/index.ts");
     println!("cargo:rerun-if-changed=crates/as/index.ts");
 
-    check_witx_codegen();
     generate_from_witx("rust".to_string(), RUST_GUEST_RAW.to_string());
     generate_from_witx("assemblyscript".to_string(), AS_GUEST_RAW.to_string());
     generate_from_witx("markdown".to_string(), MD_GUEST_API.to_string());
@@ -57,12 +56,6 @@ fn as_build_example(dir: String, example: String) {
 }
 
 fn check_witx_codegen() {
-    let mut cmd = process::Command::new("cargo");
-    cmd.stdout(process::Stdio::piped());
-    cmd.stderr(process::Stdio::piped());
-    cmd.arg("install").arg("witx-codegen");
-    cmd.output().unwrap();
-
     match process::Command::new("witx-codegen").spawn() {
         Ok(_) => {
             eprintln!("witx-codegen already installed");
@@ -82,6 +75,7 @@ fn check_witx_codegen() {
 }
 
 fn generate_from_witx(codegen_type: String, output: String) {
+    check_witx_codegen();
     let mut cmd = process::Command::new("witx-codegen");
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
