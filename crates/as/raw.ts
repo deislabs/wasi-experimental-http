@@ -8,7 +8,7 @@ export type Char8 = u8;
 export type Char32 = u32;
 export type WasiPtr<T> = usize;
 export type WasiMutPtr<T> = usize;
-export type WasiStringBytesPtr = WasiMutPtr<Char8>;
+export type WasiStringBytesPtr = WasiPtr<Char8>;
 
 @unmanaged
 export class WasiString {
@@ -112,11 +112,11 @@ export type WrittenBytes = usize;
 // @ts-ignore: decorator
 @external("wasi_experimental_http", "req")
 export declare function req(
-    url_ptr: WasiMutPtr<Char8>,
+    url_ptr: WasiPtr<Char8>,
     url_len: usize,
-    method_ptr: WasiMutPtr<Char8>,
+    method_ptr: WasiPtr<Char8>,
     method_len: usize,
-    headers_ptr: WasiMutPtr<Char8>,
+    headers_ptr: WasiPtr<Char8>,
     headers_len: usize,
     body_ptr: WasiPtr<u8>,
     body_len: usize,
@@ -140,7 +140,7 @@ export declare function close(
 @external("wasi_experimental_http", "header_get")
 export declare function headerGet(
     response_handle: ResponseHandle,
-    header_name_ptr: WasiMutPtr<Char8>,
+    header_name_ptr: WasiPtr<Char8>,
     header_name_len: usize,
     header_value_buf_ptr: WasiMutPtr<u8>,
     header_value_buf_len: usize,

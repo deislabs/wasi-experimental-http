@@ -21,7 +21,7 @@ pub type Char8 = u8;
 pub type Char32 = u32;
 pub type WasiPtr<T> = *const T;
 pub type WasiMutPtr<T> = *mut T;
-pub type WasiStringBytesPtr = WasiMutPtr<Char8>;
+pub type WasiStringBytesPtr = WasiPtr<Char8>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -96,28 +96,13 @@ impl WasiString {
         std::str::from_utf8(unsafe { std::slice::from_raw_parts(self.ptr, self.len) })
     }
 
-    pub fn as_mut_str(&mut self) -> Result<&mut str, std::str::Utf8Error> {
-        std::str::from_utf8_mut(unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) })
-    }
-
     pub fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
-    }
-
-    pub fn as_mut_slice(&self) -> &mut [u8] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 
     pub fn from_slice(&self, slice: &[u8]) -> Self {
         WasiString {
             ptr: slice.as_ptr() as _,
-            len: slice.len(),
-        }
-    }
-
-    pub fn from_mut_slice(&self, slice: &mut [u8]) -> Self {
-        WasiString {
-            ptr: slice.as_mut_ptr(),
             len: slice.len(),
         }
     }
@@ -166,11 +151,11 @@ pub type WrittenBytes = usize;
 
 /// Send a request
 pub fn req(
-    url_ptr: WasiMutPtr<Char8>,
+    url_ptr: WasiPtr<Char8>,
     url_len: usize,
-    method_ptr: WasiMutPtr<Char8>,
+    method_ptr: WasiPtr<Char8>,
     method_len: usize,
-    headers_ptr: WasiMutPtr<Char8>,
+    headers_ptr: WasiPtr<Char8>,
     headers_len: usize,
     body_ptr: WasiPtr<u8>,
     body_len: usize,
@@ -178,11 +163,11 @@ pub fn req(
     #[link(wasm_import_module = "wasi_experimental_http")]
     extern "C" {
         fn req(
-            url_ptr: WasiMutPtr<Char8>,
+            url_ptr: WasiPtr<Char8>,
             url_len: usize,
-            method_ptr: WasiMutPtr<Char8>,
+            method_ptr: WasiPtr<Char8>,
             method_len: usize,
-            headers_ptr: WasiMutPtr<Char8>,
+            headers_ptr: WasiPtr<Char8>,
             headers_len: usize,
             body_ptr: WasiPtr<u8>,
             body_len: usize,
@@ -232,7 +217,7 @@ pub fn close(
 /// Get the value associated with a header
 pub fn header_get(
     response_handle: ResponseHandle,
-    header_name_ptr: WasiMutPtr<Char8>,
+    header_name_ptr: WasiPtr<Char8>,
     header_name_len: usize,
     header_value_buf_ptr: WasiMutPtr<u8>,
     header_value_buf_len: usize,
@@ -241,7 +226,7 @@ pub fn header_get(
     extern "C" {
         fn header_get(
             response_handle: ResponseHandle,
-            header_name_ptr: WasiMutPtr<Char8>,
+            header_name_ptr: WasiPtr<Char8>,
             header_name_len: usize,
             header_value_buf_ptr: WasiMutPtr<u8>,
             header_value_buf_len: usize,

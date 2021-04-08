@@ -111,7 +111,7 @@ impl Response {
     /// Get the value of the `name` header.
     /// Returns `HttpError::HeaderNotFound` if no such header was found.
     pub fn header_get(&self, name: String) -> Result<String, Error> {
-        let mut name = name;
+        let name = name;
 
         // Set the initial capacity of the expected header value to 4 kilobytes.
         // If the response value size is larger, double the capacity and
@@ -129,7 +129,7 @@ impl Response {
             let mut buf = vec![0u8; capacity];
             match raw::header_get(
                 self.handle,
-                name.as_mut_ptr(),
+                name.as_ptr(),
                 name.len(),
                 buf.as_mut_ptr(),
                 buf.len(),
@@ -159,21 +159,21 @@ impl Response {
 /// as well as methods to access the headers and the body.
 #[tracing::instrument]
 pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
-    let mut url = req.uri().to_string();
+    let url = req.uri().to_string();
     tracing::debug!(%url, headers = ?req.headers(), "performing http request using wasmtime function");
 
-    let mut headers = header_map_to_string(req.headers())?;
-    let mut method = req.method().as_str().to_string();
+    let headers = header_map_to_string(req.headers())?;
+    let method = req.method().as_str().to_string();
     let body = match req.body() {
         None => Default::default(),
         Some(body) => body.as_ref(),
     };
     let (status_code, handle) = raw::req(
-        url.as_mut_ptr(),
+        url.as_ptr(),
         url.len(),
-        method.as_mut_ptr(),
+        method.as_ptr(),
         method.len(),
-        headers.as_mut_ptr(),
+        headers.as_ptr(),
         headers.len(),
         body.as_ptr(),
         body.len(),
