@@ -1,32 +1,32 @@
 (typename $http_error
     (enum (@witx tag u32)
-;;; Success    
+;;; Success
         $success
-;;; Invalid handle        
+;;; Invalid handle
         $invalid_handle
-;;; Memory not found        
+;;; Memory not found
         $memory_not_found
-;;; Memory access error        
+;;; Memory access error
         $memory_access_error
-;;; Buffer too small        
+;;; Buffer too small
         $buffer_too_small
-;;; Header not found        
+;;; Header not found
         $header_not_found
-;;; UTF-8 error        
+;;; UTF-8 error
         $utf8_error
-;;; Destination not allowed        
+;;; Destination not allowed
         $destination_not_allowed
-;;; Invalid method        
+;;; Invalid method
         $invalid_method
-;;; Invalid encoding        
+;;; Invalid encoding
         $invalid_encoding
-;;; Invalid URL        
+;;; Invalid URL
         $invalid_url
-;;; Request error        
+;;; Request error
         $request_error
-;;; Runtime error        
+;;; Runtime error
         $runtime_error
-;;; Too many sessions        
+;;; Too many sessions
         $too_many_sessions
     )
 )
@@ -80,7 +80,7 @@
 ;;; Fill a buffer with the streamed content of a response body
     (@interface func (export "body_read")
         (param $response_handle $response_handle)
-        (param $body_buf $incoming_body)       
+        (param $body_buf $incoming_body)
         (result $error (expected $written_bytes (error $http_error)))
     )
 )

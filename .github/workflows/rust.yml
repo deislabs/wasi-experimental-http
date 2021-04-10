@@ -17,6 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: rustup target add wasm32-wasi && cargo build --verbose
+      run: rustup target add wasm32-wasi && cargo install witx-codegen && cargo build --verbose
     - name: Run simple test
       run: cargo test --all -- --nocapture

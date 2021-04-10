@@ -11,7 +11,7 @@ export function post(): void {
     .body(body)
     .send();
 
-  check(res, 200, "Content-Type");
+  check(res, 200, "content-type");
   res.close();
 }
 
@@ -20,7 +20,7 @@ export function get(): void {
     .method(Method.GET)
     .send();
 
-  check(res, 200, "Content-Type");
+  check(res, 200, "content-type");
   let body = res.bodyReadAll();
   if (String.UTF8.decode(body.buffer) != '"OK"') {
     abort();

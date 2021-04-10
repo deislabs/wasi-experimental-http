@@ -3,6 +3,11 @@ use bytes::Bytes;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, StatusCode};
 use std::str::FromStr;
 
+#[allow(dead_code)]
+#[allow(clippy::mut_from_ref)]
+#[allow(clippy::clippy::too_many_arguments)]
+pub(crate) mod raw;
+
 /// HTTP errors
 #[derive(Debug, thiserror::Error)]
 pub enum HttpError {
@@ -32,33 +37,40 @@ pub enum HttpError {
     RuntimeError,
     #[error("Too many sessions")]
     TooManySessions,
+    #[error("Unknown WASI error")]
+    UnknownError,
 }
 
-fn raw_err_check(e: u32) -> Result<(), HttpError> {
-    match e {
-        0 => Ok(()),
-        1 => Err(HttpError::InvalidHandle),
-        2 => Err(HttpError::MemoryNotFound),
-        3 => Err(HttpError::MemoryAccessError),
-        4 => Err(HttpError::BufferTooSmall),
-        5 => Err(HttpError::HeaderNotFound),
-        6 => Err(HttpError::Utf8Error),
-        7 => Err(HttpError::DestinationNotAllowed),
-        8 => Err(HttpError::InvalidMethod),
-        9 => Err(HttpError::InvalidEncoding),
-        10 => Err(HttpError::InvalidUrl),
-        11 => Err(HttpError::RequestError),
-        12 => Err(HttpError::RuntimeError),
-        13 => Err(HttpError::TooManySessions),
-        _ => unreachable!(),
+// TODO(@radu-matei)
+//
+// This error is not really used in the public API.
+impl From<raw::Error> for HttpError {
+    fn from(e: raw::Error) -> Self {
+        match e {
+            raw::Error::WasiError(errno) => match errno {
+                1 => HttpError::InvalidHandle,
+                2 => HttpError::MemoryNotFound,
+                3 => HttpError::MemoryAccessError,
+                4 => HttpError::BufferTooSmall,
+                5 => HttpError::HeaderNotFound,
+                6 => HttpError::Utf8Error,
+                7 => HttpError::DestinationNotAllowed,
+                8 => HttpError::InvalidMethod,
+                9 => HttpError::InvalidEncoding,
+                10 => HttpError::InvalidUrl,
+                11 => HttpError::RequestError,
+                12 => HttpError::RuntimeError,
+                13 => HttpError::TooManySessions,
+
+                _ => HttpError::UnknownError,
+            },
+        }
     }
 }
 
-type Handle = u32;
-
-/// An HTTP response.
+/// An HTTP response
 pub struct Response {
-    handle: Handle,
+    handle: raw::ResponseHandle,
     pub status_code: StatusCode,
 }
 
@@ -66,7 +78,7 @@ pub struct Response {
 /// when the response object goes out of scope.
 impl Drop for Response {
     fn drop(&mut self) {
-        unsafe { raw::close(self.handle) };
+        raw::close(self.handle).unwrap();
     }
 }
 
@@ -76,9 +88,7 @@ impl Response {
     /// The function returns the actual number of bytes that were written, and `0`
     /// when the end of the stream has been reached.
     pub fn body_read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        let mut read: usize = 0;
-        let ret = unsafe { raw::body_read(self.handle, buf.as_mut_ptr(), buf.len(), &mut read) };
-        raw_err_check(ret)?;
+        let read = raw::body_read(self.handle, buf.as_mut_ptr(), buf.len())?;
         Ok(read)
     }
 
@@ -100,48 +110,46 @@ impl Response {
 
     /// Get the value of the `name` header.
     /// Returns `HttpError::HeaderNotFound` if no such header was found.
-    pub fn header_get(&self, name: &str) -> Result<String, Error> {
-        let mut capacity = 4096;
-        // Attempt to read the header value.
-        // If the value is too large, double the capacity and
-        // try again.
+    pub fn header_get(&self, name: String) -> Result<String, Error> {
+        let name = name;
 
-        // TODO(@radu-matei)
+        // Set the initial capacity of the expected header value to 4 kilobytes.
+        // If the response value size is larger, double the capacity and
+        // attempt to read again, but only until reaching 64 kilobytes.
         //
-        // The HTTP spec does not limit the maximum size of a header value.
-        // While in theory known servers limit this value (anywhere from 4K to 48K), a
-        // maliciously constructed web server could make the guest continue to allocate, and so
-        // grow the instance's linear memory until it reaches the limit of possibly allocable
-        // memory by the Wasm VM.
-        //
-        // This can happen for response bodies as well, but using `body_read` we can control
-        // the number of bytes we read at a time, while in this scenario, we attempt to
-        // double the allocated size and retry.
-        // At the least there should be a hard limit to the size of the capacity where we error out.
+        // This is to avoid a potentially malicious web server from returning a
+        // response header that would make the guest allocate all of its possible
+        // memory.
+        // The maximum is set to 64 kilobytes, as it is usually the maximum value
+        // known servers will allow until returning 413 Entity Too Large.
+        let mut capacity = 4 * 1024;
+        let max_capacity: usize = 64 * 1024;
+
         loop {
-            let mut written: usize = 0;
             let mut buf = vec![0u8; capacity];
-            let ret = unsafe {
-                raw::header_get(
-                    self.handle,
-                    name.as_ptr(),
-                    name.len(),
-                    buf.as_mut_ptr(),
-                    buf.len(),
-                    &mut written,
-                )
-            };
-            match raw_err_check(ret) {
-                Ok(()) => {
+            match raw::header_get(
+                self.handle,
+                name.as_ptr(),
+                name.len(),
+                buf.as_mut_ptr(),
+                buf.len(),
+            ) {
+                Ok(written) => {
                     buf.truncate(written);
                     return Ok(String::from_utf8(buf)?);
                 }
-                Err(HttpError::BufferTooSmall) => {
-                    capacity *= 2;
-                    continue;
-                }
-                Err(e) => return Err(e.into()),
-            }
+                Err(e) => match Into::<HttpError>::into(e) {
+                    HttpError::BufferTooSmall => {
+                        if capacity < max_capacity {
+                            capacity *= 2;
+                            continue;
+                        } else {
+                            return Err(e.into());
+                        }
+                    }
+                    _ => return Err(e.into()),
+                },
+            };
         }
     }
 }
@@ -155,28 +163,21 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
     tracing::debug!(%url, headers = ?req.headers(), "performing http request using wasmtime function");
 
     let headers = header_map_to_string(req.headers())?;
-    let method = req.method().as_str();
+    let method = req.method().as_str().to_string();
     let body = match req.body() {
         None => Default::default(),
         Some(body) => body.as_ref(),
     };
-    let mut status_code: u16 = 0;
-    let mut handle: Handle = 0;
-    let ret = unsafe {
-        raw::req(
-            url.as_ptr(),
-            url.len(),
-            method.as_ptr(),
-            method.len(),
-            headers.as_ptr(),
-            headers.len(),
-            body.as_ptr(),
-            body.len(),
-            &mut status_code,
-            &mut handle,
-        )
-    };
-    raw_err_check(ret)?;
+    let (status_code, handle) = raw::req(
+        url.as_ptr(),
+        url.len(),
+        method.as_ptr(),
+        method.len(),
+        headers.as_ptr(),
+        headers.len(),
+        body.as_ptr(),
+        body.len(),
+    )?;
     Ok(Response {
         handle,
         status_code: StatusCode::from_u16(status_code)?,
@@ -220,43 +221,6 @@ pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
         headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
     }
     Ok(headers)
-}
-
-mod raw {
-    /// Import `wasi_experimental_http` from the runtime.
-    #[link(wasm_import_module = "wasi_experimental_http")]
-    extern "C" {
-        pub fn req(
-            url_ptr: *const u8,
-            url_len_ptr: usize,
-            method_ptr: *const u8,
-            method_len_ptr: usize,
-            req_headers_ptr: *const u8,
-            req_headers_len_ptr: usize,
-            req_body_ptr: *const u8,
-            req_body_len_ptr: usize,
-            status_code_ptr: *mut u16,
-            res_handle_ptr: *mut u32,
-        ) -> u32;
-
-        pub fn close(handle: u32) -> u32;
-
-        pub fn header_get(
-            handle: u32,
-            name_ptr: *const u8,
-            name_len: usize,
-            value_ptr: *mut u8,
-            value_len: usize,
-            value_written_ptr: *mut usize,
-        ) -> u32;
-
-        pub fn body_read(
-            handle: u32,
-            buf_ptr: *mut u8,
-            buf_len: usize,
-            but_read_ptr: *mut usize,
-        ) -> u32;
-    }
 }
 
 #[cfg(test)]

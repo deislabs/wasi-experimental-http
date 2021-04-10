@@ -10,7 +10,10 @@ pub extern "C" fn get() {
         .to_string();
     assert_eq!(str, r#""OK""#);
     assert_eq!(res.status_code, 200);
-    assert!(!res.header_get("content-type").unwrap().is_empty());
+    assert!(!res
+        .header_get("content-type".to_string())
+        .unwrap()
+        .is_empty());
 }
 
 #[no_mangle]
@@ -29,7 +32,10 @@ pub extern "C" fn post() {
         .unwrap()
         .to_string();
     assert_eq!(res.status_code, 200);
-    assert!(!res.header_get("content-type").unwrap().is_empty());
+    assert!(!res
+        .header_get("content-type".to_string())
+        .unwrap()
+        .is_empty());
 }
 
 #[allow(unused_variables)]
