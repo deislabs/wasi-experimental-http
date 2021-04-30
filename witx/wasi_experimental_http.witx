@@ -77,6 +77,12 @@
         (result $error (expected $written_bytes (error $http_error)))
     )
 
+    (@interface func (export "header_get_all")
+        (param $response_handle $response_handle)
+        (param $header_value_buf $header_value_buf)
+        (result $error (expected $written_bytes (error $http_error)))
+    )
+
 ;;; Fill a buffer with the streamed content of a response body
     (@interface func (export "body_read")
         (param $response_handle $response_handle)

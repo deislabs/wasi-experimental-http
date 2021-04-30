@@ -248,6 +248,33 @@ pub fn header_get(
     Ok(unsafe { result_ptr.assume_init() })
 }
 
+pub fn header_get_all(
+    response_handle: ResponseHandle,
+    header_value_buf_ptr: WasiMutPtr<u8>,
+    header_value_buf_len: usize,
+) -> Result<WrittenBytes, Error> {
+    #[link(wasm_import_module = "wasi_experimental_http")]
+    extern "C" {
+        fn header_get_all(
+            response_handle: ResponseHandle,
+            header_value_buf_ptr: WasiMutPtr<u8>,
+            header_value_buf_len: usize,
+            result_ptr: WasiMutPtr<WrittenBytes>,
+        ) -> HttpError;
+    }
+    let mut result_ptr = std::mem::MaybeUninit::uninit();
+    let res = unsafe { header_get_all(
+        response_handle,
+        header_value_buf_ptr,
+        header_value_buf_len,
+        result_ptr.as_mut_ptr(),
+    )};
+    if res != 0 {
+        return Err(Error::WasiError(res as _));
+    }
+    Ok(unsafe { result_ptr.assume_init() })
+}
+
 /// Fill a buffer with the streamed content of a response body
 pub fn body_read(
     response_handle: ResponseHandle,

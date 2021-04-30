@@ -147,6 +147,15 @@ export declare function headerGet(
     result_ptr: WasiMutPtr<WrittenBytes>
 ): HttpError;
 
+// @ts-ignore: decorator
+@external("wasi_experimental_http", "header_get_all")
+export declare function headerGetAll(
+    response_handle: ResponseHandle,
+    header_value_buf_ptr: WasiMutPtr<u8>,
+    header_value_buf_len: usize,
+    result_ptr: WasiMutPtr<WrittenBytes>
+): HttpError;
+
 /**
  * Fill a buffer with the streamed content of a response body
  */

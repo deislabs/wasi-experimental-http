@@ -9,7 +9,7 @@
 
 ### Functions list:
 
-\[**[All](#functions)**\] - \[[`req()`](#req)\] - \[[`close()`](#close)\] - \[[`header_get()`](#header_get)\] - \[[`body_read()`](#body_read)\]
+\[**[All](#functions)**\] - \[[`req()`](#req)\] - \[[`close()`](#close)\] - \[[`header_get()`](#header_get)\] - \[[`header_get_all()`](#header_get_all)\] - \[[`body_read()`](#body_read)\]
 
 ## Types
 
@@ -139,6 +139,20 @@ Returned error type: _[`http_error`](#http_error)_
 
 > Get the value associated with a header
 
+
+---
+
+### [`header_get_all()`](#header_get_all)
+Returned error type: _[`http_error`](#http_error)_
+
+#### Input:
+
+* **`response_handle`**: _[`response_handle`](#response_handle)_
+* **`header_value_buf`**: _[`header_value_buf`](#header_value_buf)_
+
+#### Output:
+
+* _[`written_bytes`](#written_bytes)_ mutable pointer
 
 ---
 

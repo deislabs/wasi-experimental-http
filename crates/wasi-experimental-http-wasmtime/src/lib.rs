@@ -6,6 +6,7 @@ use reqwest::{Client, Method};
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 use tokio::runtime::Handle;
 use url::Url;
+use wasi_experimental_http::header_map_to_string;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
@@ -158,6 +159,38 @@ impl HostCalls {
         // Write the header value and its length.
         memory.write(value_ptr as _, value.as_bytes())?;
         memory.write(value_written_ptr as _, &(value.len() as u32).to_le_bytes())?;
+        Ok(())
+    }
+
+    fn header_get_all(
+        st: Rc<RefCell<State>>,
+        caller: Caller<'_>,
+        handle: WasiHttpHandle,
+        buf_ptr: u32,
+        buf_len: u32,
+        buf_written_ptr: u32,
+    ) -> Result<(), HttpError> {
+        let mut st = st.borrow_mut();
+        // Get the current response body.
+        let headers = &mut st
+            .responses
+            .get_mut(&handle)
+            .ok_or(HttpError::InvalidHandle(handle))?
+            .headers;
+
+        let headers = match header_map_to_string(headers) {
+            Ok(res) => res,
+            Err(_) => return Err(HttpError::RuntimeError),
+        };
+
+        let memory = memory_get(caller)?;
+
+        if headers.len() > buf_len as _ {
+            return Err(HttpError::BufferTooSmall);
+        }
+
+        memory.write(buf_ptr as _, headers.as_bytes())?;
+        memory.write(buf_written_ptr as _, &(headers.len() as u32).to_le_bytes())?;
         Ok(())
     }
 
@@ -341,6 +374,30 @@ impl HttpCtx {
         )?;
 
         let st = self.state.clone();
+        linker.func(
+            Self::MODULE,
+            "header_get_all",
+            move |caller: Caller<'_>,
+                  handle: WasiHttpHandle,
+                  buf_ptr: u32,
+                  buf_len: u32,
+                  buf_read_ptr: u32|
+                  -> u32 {
+                match HostCalls::header_get_all(
+                    st.clone(),
+                    caller,
+                    handle,
+                    buf_ptr,
+                    buf_len,
+                    buf_read_ptr,
+                ) {
+                    Ok(()) => 0,
+                    Err(e) => e.into(),
+                }
+            },
+        )?;
+
+        let st = self.state.clone();
         let allowed_hosts = self.allowed_hosts.clone();
         let max_concurrent_requests = self.max_concurrent_requests;
         linker.func(
@@ -474,6 +531,7 @@ fn string_from_memory(memory: &Memory, offset: u32, len: u32) -> Result<&str, Ht
 /// allowed hosts defined by the runtime.
 /// If `None` is passed, the guest module is not allowed to send the request.
 fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpError> {
+    // println!("trying to access url {}", url);
     let url_host = Url::parse(url)
         .map_err(|_| HttpError::InvalidUrl)?
         .host_str()
