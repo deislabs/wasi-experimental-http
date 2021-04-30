@@ -248,6 +248,7 @@ pub fn header_get(
     Ok(unsafe { result_ptr.assume_init() })
 }
 
+/// Get the entire response header map
 pub fn header_get_all(
     response_handle: ResponseHandle,
     header_value_buf_ptr: WasiMutPtr<u8>,

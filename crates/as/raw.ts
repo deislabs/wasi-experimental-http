@@ -147,6 +147,9 @@ export declare function headerGet(
     result_ptr: WasiMutPtr<WrittenBytes>
 ): HttpError;
 
+/**
+ * Get the entire response header map
+ */
 // @ts-ignore: decorator
 @external("wasi_experimental_http", "header_get_all")
 export declare function headerGetAll(

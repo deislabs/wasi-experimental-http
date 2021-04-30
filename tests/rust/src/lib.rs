@@ -14,6 +14,9 @@ pub extern "C" fn get() {
         .header_get("content-type".to_string())
         .unwrap()
         .is_empty());
+
+    let header_map = res.headers_get_all().unwrap();
+    assert_ne!(header_map.len(), 0);
 }
 
 #[no_mangle]
@@ -36,6 +39,9 @@ pub extern "C" fn post() {
         .header_get("content-type".to_string())
         .unwrap()
         .is_empty());
+
+    let header_map = res.headers_get_all().unwrap();
+    assert_ne!(header_map.len(), 0);
 }
 
 #[allow(unused_variables)]

@@ -154,6 +154,9 @@ Returned error type: _[`http_error`](#http_error)_
 
 * _[`written_bytes`](#written_bytes)_ mutable pointer
 
+> Get the entire response header map
+
+
 ---
 
 ### [`body_read()`](#body_read)
