@@ -530,7 +530,6 @@ fn string_from_memory(memory: &Memory, offset: u32, len: u32) -> Result<&str, Ht
 /// allowed hosts defined by the runtime.
 /// If `None` is passed, the guest module is not allowed to send the request.
 fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpError> {
-    // println!("trying to access url {}", url);
     let url_host = Url::parse(url)
         .map_err(|_| HttpError::InvalidUrl)?
         .host_str()
