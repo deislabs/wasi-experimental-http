@@ -249,14 +249,14 @@ pub fn header_get(
 }
 
 /// Get the entire response header map
-pub fn header_get_all(
+pub fn headers_get_all(
     response_handle: ResponseHandle,
     header_value_buf_ptr: WasiMutPtr<u8>,
     header_value_buf_len: usize,
 ) -> Result<WrittenBytes, Error> {
     #[link(wasm_import_module = "wasi_experimental_http")]
     extern "C" {
-        fn header_get_all(
+        fn headers_get_all(
             response_handle: ResponseHandle,
             header_value_buf_ptr: WasiMutPtr<u8>,
             header_value_buf_len: usize,
@@ -264,7 +264,7 @@ pub fn header_get_all(
         ) -> HttpError;
     }
     let mut result_ptr = std::mem::MaybeUninit::uninit();
-    let res = unsafe { header_get_all(
+    let res = unsafe { headers_get_all(
         response_handle,
         header_value_buf_ptr,
         header_value_buf_len,

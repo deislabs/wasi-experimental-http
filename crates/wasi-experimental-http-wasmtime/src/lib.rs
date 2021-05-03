@@ -162,7 +162,7 @@ impl HostCalls {
         Ok(())
     }
 
-    fn header_get_all(
+    fn headers_get_all(
         st: Rc<RefCell<State>>,
         caller: Caller<'_>,
         handle: WasiHttpHandle,
@@ -171,7 +171,6 @@ impl HostCalls {
         buf_written_ptr: u32,
     ) -> Result<(), HttpError> {
         let mut st = st.borrow_mut();
-        // Get the current response body.
         let headers = &mut st
             .responses
             .get_mut(&handle)
@@ -376,14 +375,14 @@ impl HttpCtx {
         let st = self.state.clone();
         linker.func(
             Self::MODULE,
-            "header_get_all",
+            "headers_get_all",
             move |caller: Caller<'_>,
                   handle: WasiHttpHandle,
                   buf_ptr: u32,
                   buf_len: u32,
                   buf_read_ptr: u32|
                   -> u32 {
-                match HostCalls::header_get_all(
+                match HostCalls::headers_get_all(
                     st.clone(),
                     caller,
                     handle,

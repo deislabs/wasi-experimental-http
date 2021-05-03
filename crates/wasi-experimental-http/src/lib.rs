@@ -171,13 +171,13 @@ impl Response {
         let capacity = 64 * 1024;
         let mut buf = vec![0u8; capacity];
 
-        match raw::header_get_all(self.handle, buf.as_mut_ptr(), buf.len()) {
+        match raw::headers_get_all(self.handle, buf.as_mut_ptr(), buf.len()) {
             Ok(written) => {
                 buf.truncate(written);
                 let str = String::from_utf8(buf)?;
                 return Ok(string_to_header_map(&str)?);
             }
-            Err(e) => panic!("error: {:#?}", e),
+            Err(e) => return Err(e.into()),
         };
     }
 }

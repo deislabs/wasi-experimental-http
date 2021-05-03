@@ -78,7 +78,7 @@
     )
 
 ;;; Get the entire response header map
-    (@interface func (export "header_get_all")
+    (@interface func (export "headers_get_all")
         (param $response_handle $response_handle)
         (param $header_value_buf $header_value_buf)
         (result $error (expected $written_bytes (error $http_error)))

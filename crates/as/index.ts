@@ -90,15 +90,24 @@ export class Response {
 
   /** Read all response headers into a header map */
   public headerGetAll(): Map<string, string> {
-    let headers_buf = new Uint8Array(4*1024);
+    let headers_buf = new Uint8Array(4 * 1024);
     let headers_buf_ptr = changetype<usize>(headers_buf.buffer);
     let headers_len_ptr = memory.data(8);
 
-    if (raw.headerGetAll(this.handle, headers_buf_ptr, headers_buf.byteLength, headers_len_ptr) != 0) {
+    if (
+      raw.headersGetAll(
+        this.handle,
+        headers_buf_ptr,
+        headers_buf.byteLength,
+        headers_len_ptr
+      ) != 0
+    ) {
       return new Map<string, string>();
     }
 
-    let headers = String.UTF8.decode(headers_buf.subarray(0, load<u32>(headers_len_ptr)).buffer);
+    let headers = String.UTF8.decode(
+      headers_buf.subarray(0, load<u32>(headers_len_ptr)).buffer
+    );
     return stringToHeaderMap(headers);
   }
 
@@ -235,8 +244,8 @@ function stringToHeaderMap(headersStr: string): Map<string, string> {
   let parts = headersStr.split("\n");
   // the result of the split contains an empty part as well
   for (let index = 0, len = parts.length - 1; index < len; index++) {
-      let p = parts[index].split(":");
-      res.set(p[0], p[1]);
+    let p = parts[index].split(":");
+    res.set(p[0], p[1]);
   }
 
   return res;

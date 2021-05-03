@@ -151,8 +151,8 @@ export declare function headerGet(
  * Get the entire response header map
  */
 // @ts-ignore: decorator
-@external("wasi_experimental_http", "header_get_all")
-export declare function headerGetAll(
+@external("wasi_experimental_http", "headers_get_all")
+export declare function headersGetAll(
     response_handle: ResponseHandle,
     header_value_buf_ptr: WasiMutPtr<u8>,
     header_value_buf_len: usize,
