@@ -54,19 +54,16 @@ wasi.add_to_linker(&mut linker)?;
 
 // link the experimental HTTP support
 let allowed_hosts = Some(vec!["https://postman-echo.com".to_string()]);
-wasi_experimental_http_wasmtime::link_http(&mut linker, allowed_hosts)?;
+let max_concurrent_requests = Some(42);
+
+let http = HttpCtx::new(allowed_domains, max_concurrent_requests)?;
+http.add_to_linker(&mut linker)?;
 ```
 
 Then, executing the module above will send the HTTP request and write the
 response:
 
 ```
-wasi_experimental_http::data_from_memory:: length: 29
-wasi_experimental_http::data_from_memory:: length: 41
-wasi_experimental_http::data_from_memory:: length: 4
-wasi_experimental_http::data_from_memory:: length: 53
-wasi_experimental_http::write_guest_memory:: written 336 bytes
-wasi_experimental_http::write_guest_memory:: written 374 bytes
 {
     "content-length": "374",
     "connection": "keep-alive",
@@ -104,7 +101,6 @@ import {
   RequestBuilder,
   Response,
 } from "@deislabs/wasi-experimental-http";
-export { alloc } from "@deislabs/wasi-experimental-http";
 
 export function _start_(): void {
   let body = String.UTF8.encode("testing the body");
@@ -114,8 +110,8 @@ export function _start_(): void {
     .body(body)
     .send();
   wasi.Console.log(res.status.toString());
-  wasi.Console.log(res.headers);
-  wasi.Console.log(String.UTF8.decode(res.body));
+  wasi.Console.log(res.headersGetAll.toString());
+  wasi.Console.log(String.UTF8.decode(res.bodyReadAll().buffer));
 }
 ```
 
