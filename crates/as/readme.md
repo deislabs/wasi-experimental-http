@@ -47,12 +47,6 @@ module can be executed in a Wasmtime runtime that has the experimental HTTP
 functionality enabled (the crate to configure it can be found in this repo):
 
 ```
-wasi_experimental_http::data_from_memory:: length: 29
-wasi_experimental_http::data_from_memory:: length: 41
-wasi_experimental_http::data_from_memory:: length: 4
-wasi_experimental_http::data_from_memory:: length: 53
-wasi_experimental_http::write_guest_memory:: written 336 bytes
-wasi_experimental_http::write_guest_memory:: written 374 bytes
 {
     "content-length": "374",
     "connection": "keep-alive",

@@ -18,7 +18,10 @@ let wasi = Wasi::new(&store, ctx);
 wasi.add_to_linker(&mut linker)?;
 
 // link the experimental HTTP support
-let http = Http::new(None);
+let allowed_hosts = Some(vec!["https://postman-echo.com".to_string()]);
+let max_concurrent_requests = Some(42);
+
+let http = HttpCtx::new(allowed_domains, max_concurrent_requests)?;
 http.add_to_linker(&mut linker)?;
 ```
 

@@ -59,4 +59,9 @@ function check(
   if (!headerValue) {
     abort();
   }
+
+  let headers = res.headerGetAll();
+  if(headers.size == 0) {
+    abort();
+  }
 }

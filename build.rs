@@ -14,6 +14,7 @@ fn main() {
     println!("cargo:rerun-if-changed=crates/wasi-experimental-http/src/lib.rs");
     println!("cargo:rerun-if-changed=tests/as/index.ts");
     println!("cargo:rerun-if-changed=crates/as/index.ts");
+    println!("cargo:rerun-if-changed=witx/wasi_experimental_http.witx");
 
     generate_from_witx("rust".to_string(), RUST_GUEST_RAW.to_string());
     generate_from_witx("assemblyscript".to_string(), AS_GUEST_RAW.to_string());

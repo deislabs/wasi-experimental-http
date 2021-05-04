@@ -152,6 +152,34 @@ impl Response {
             };
         }
     }
+
+    /// Get the entire response header map for a given request.
+    // If clients know the specific header key, they should use
+    // `header_get` to avoid allocating memory for the entire
+    // header map.
+    pub fn headers_get_all(&self) -> Result<HeaderMap, Error> {
+        // The fixed capacity for the header map is 64 kilobytes.
+        // If a server sends a header map that is larger than this,
+        // the client will return an error.
+        // The same note applies - most known servers will limit
+        // response headers to 64 kilobytes at most before returning
+        // 413 Entity Too Large.
+        //
+        // It might make sense to increase the size here in the same
+        // way it is done in `header_get`, if there are valid use
+        // cases where it is required.
+        let capacity = 64 * 1024;
+        let mut buf = vec![0u8; capacity];
+
+        match raw::headers_get_all(self.handle, buf.as_mut_ptr(), buf.len()) {
+            Ok(written) => {
+                buf.truncate(written);
+                let str = String::from_utf8(buf)?;
+                return Ok(string_to_header_map(&str)?);
+            }
+            Err(e) => return Err(e.into()),
+        };
+    }
 }
 
 /// Send an HTTP request.

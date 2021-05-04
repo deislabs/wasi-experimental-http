@@ -26,10 +26,10 @@ pub extern "C" fn _start() {
     let req = req.body(Some(b)).unwrap();
 
     let res = wasi_experimental_http::request(req).expect("cannot make request");
-    let str = std::str::from_utf8(&res.body()).unwrap().to_string();
-    println!("{:#?}", res.headers());
+    let str = std::str::from_utf8(&res.body_read_all()).unwrap().to_string();
+    println!("{:#?}", res.header_get("Content-Type"));
     println!("{}", str);
-    println!("{:#?}", res.status().to_string());
+    println!("{:#?}", res.status_code);
 }
 ```
 
@@ -38,12 +38,6 @@ runtime that has the experimental HTTP functionality enabled (the crate to
 configure it can be found in this repo):
 
 ```
-wasi_experimental_http::data_from_memory:: length: 29
-wasi_experimental_http::data_from_memory:: length: 41
-wasi_experimental_http::data_from_memory:: length: 4
-wasi_experimental_http::data_from_memory:: length: 53
-wasi_experimental_http::write_guest_memory:: written 336 bytes
-wasi_experimental_http::write_guest_memory:: written 374 bytes
 {
     "content-length": "374",
     "connection": "keep-alive",

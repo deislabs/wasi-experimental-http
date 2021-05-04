@@ -148,6 +148,18 @@ export declare function headerGet(
 ): HttpError;
 
 /**
+ * Get the entire response header map
+ */
+// @ts-ignore: decorator
+@external("wasi_experimental_http", "headers_get_all")
+export declare function headersGetAll(
+    response_handle: ResponseHandle,
+    header_value_buf_ptr: WasiMutPtr<u8>,
+    header_value_buf_len: usize,
+    result_ptr: WasiMutPtr<WrittenBytes>
+): HttpError;
+
+/**
  * Fill a buffer with the streamed content of a response body
  */
 // @ts-ignore: decorator
