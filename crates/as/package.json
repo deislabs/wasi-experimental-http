@@ -3,7 +3,7 @@
   "main": "index.ts",
   "ascMain": "index.ts",
   "types": "index.ts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Experimental HTTP library for AssemblyScript",
   "author": {
     "name": "The DeisLabs team at Microsoft"
