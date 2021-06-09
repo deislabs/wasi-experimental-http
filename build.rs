@@ -8,7 +8,7 @@ const RUST_GUEST_RAW: &str = "crates/wasi-experimental-http/src/raw.rs";
 const AS_GUEST_RAW: &str = "crates/as/raw.ts";
 const MD_GUEST_API: &str = "witx/readme.md";
 
-const WITX_CODEGEN_VERSION: &str = "0.10.4";
+const WITX_CODEGEN_VERSION: &str = "0.11.0";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
