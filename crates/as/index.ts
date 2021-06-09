@@ -215,9 +215,7 @@ function raw_request(
   if (err != 0) {
     // Based on the error code, read and log the error.
     Console.log("ERROR CODE: " + err.toString());
-
-    // An error code was written. Read it, then abort.
-    Console.log("Runtime error: " + err.toString());
+    Console.log("ERROR MESSAGE: " + errorToHumanReadableMessage(err));
     abort();
   }
 
@@ -288,6 +286,40 @@ function methodEnumToString(m: Method): string {
 
     default:
       return "";
+  }
+}
+
+function errorToHumanReadableMessage(e: u32): string {
+  switch (e) {
+    case 1:
+      return "Invalid WASI HTTP handle.";
+    case 2:
+      return "Memory not found.";
+    case 3:
+      return "Memory access error.";
+    case 4:
+      return "Buffer too small";
+    case 5:
+      return "Header not found.";
+    case 6:
+      return "UTF-8 error.";
+    case 7:
+      return "Destination URL not allowed.";
+    case 8:
+      return "Invalid HTTP method.";
+    case 9:
+      return "Invalid encoding.";
+    case 10:
+      return "Invalid URL.";
+    case 11:
+      return "Unable to send HTTP request.";
+    case 12:
+      return "Runtime error.";
+    case 13:
+      return "Too many sessions.";
+
+    default:
+      return "Unknown error.";
   }
 }
 
