@@ -22,7 +22,7 @@ jobs:
     - name: Build
       run: rustup target add wasm32-wasi && cargo build --verbose
     - name: Run simple test
-      # run: cargo test -- --nocapture
+      shell: bash
       run:   |
             if [ "$RUNNER_OS" == "Windows" ]; then
                   # Attempting to run the unit tests on Windows
@@ -32,5 +32,5 @@ jobs:
                   # the integration tests on Windows.
                   cargo test -- --nocapture
             else
-                  cargo test --all -- --nocapture1
+                  cargo test --all -- --nocapture
             fi
