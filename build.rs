@@ -1,4 +1,4 @@
-use std::process;
+use std::process::{self, Command};
 
 const TESTS_DIR: &str = "tests";
 const RUST_EXAMPLE: &str = "rust";
@@ -8,6 +8,8 @@ const RUST_GUEST_RAW: &str = "crates/wasi-experimental-http/src/raw.rs";
 const AS_GUEST_RAW: &str = "crates/as/raw.ts";
 const MD_GUEST_API: &str = "witx/readme.md";
 
+const WITX_CODEGEN_VERSION: &str = "0.10.4";
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=tests/rust/src/lib.rs");
@@ -16,44 +18,28 @@ fn main() {
     println!("cargo:rerun-if-changed=crates/as/index.ts");
     println!("cargo:rerun-if-changed=witx/wasi_experimental_http.witx");
 
-    generate_from_witx("rust".to_string(), RUST_GUEST_RAW.to_string());
-    generate_from_witx("assemblyscript".to_string(), AS_GUEST_RAW.to_string());
-    generate_from_witx("markdown".to_string(), MD_GUEST_API.to_string());
+    generate_from_witx("rust", RUST_GUEST_RAW);
+    generate_from_witx("assemblyscript", AS_GUEST_RAW);
+    generate_from_witx("markdown", MD_GUEST_API);
 
-    cargo_build_example(TESTS_DIR.to_string(), RUST_EXAMPLE.to_string());
-    as_build_example(TESTS_DIR.to_string(), AS_EXAMPLE.to_string());
+    cargo_build_example(TESTS_DIR, RUST_EXAMPLE);
+    as_build_example(TESTS_DIR, AS_EXAMPLE);
 }
 
-fn cargo_build_example(dir: String, example: String) {
+fn cargo_build_example(dir: &str, example: &str) {
     let dir = format!("{}/{}", dir, example);
 
-    let mut cmd = process::Command::new("cargo");
-    cmd.current_dir(dir);
-    cmd.stdout(process::Stdio::piped());
-    cmd.stderr(process::Stdio::piped());
-    cmd.arg("build")
-        .arg("--target")
-        .arg("wasm32-wasi")
-        .arg("--release");
-    cmd.output().unwrap();
+    run(
+        vec!["cargo", "build", "--target", "wasm32-wasi", "--release"],
+        Some(dir),
+    );
 }
 
-fn as_build_example(dir: String, example: String) {
+fn as_build_example(dir: &str, example: &str) {
     let dir = format!("{}/{}", dir, example);
 
-    let mut cmd = process::Command::new("npm");
-    cmd.current_dir(dir.clone());
-    cmd.stdout(process::Stdio::piped());
-    cmd.stderr(process::Stdio::piped());
-    cmd.arg("install");
-    cmd.output().unwrap();
-
-    let mut cmd = process::Command::new("npm");
-    cmd.current_dir(dir);
-    cmd.stdout(process::Stdio::piped());
-    cmd.stderr(process::Stdio::piped());
-    cmd.arg("run").arg("asbuild");
-    cmd.output().unwrap();
+    run(vec!["npm", "install"], Some(dir.clone()));
+    run(vec!["npm", "run", "asbuild"], Some(dir));
 }
 
 fn check_witx_codegen() {
@@ -61,31 +47,64 @@ fn check_witx_codegen() {
         Ok(_) => {
             eprintln!("witx-codegen already installed");
         }
-        Err(e) => {
-            if let std::io::ErrorKind::NotFound = e.kind() {
-                let mut cmd = process::Command::new("cargo");
-                cmd.stdout(process::Stdio::piped());
-                cmd.stderr(process::Stdio::piped());
-                cmd.arg("install").arg("witx-codegen");
-                cmd.output().unwrap();
-            } else {
-                eprintln!("cannot find or install witx-codegen: {}", e);
-            }
+        Err(_) => {
+            println!("cannot find witx-codegen, attempting to install");
+            run(
+                vec![
+                    "cargo",
+                    "install",
+                    "witx-codegen",
+                    "--version",
+                    WITX_CODEGEN_VERSION,
+                ],
+                None,
+            );
         }
     }
 }
 
-fn generate_from_witx(codegen_type: String, output: String) {
+fn generate_from_witx(codegen_type: &str, output: &str) {
     check_witx_codegen();
-    let mut cmd = process::Command::new("witx-codegen");
+
+    run(
+        vec![
+            "witx-codegen",
+            "--output-type",
+            codegen_type,
+            "--output",
+            output,
+            "witx/wasi_experimental_http.witx",
+        ],
+        None,
+    );
+}
+
+fn run<S: Into<String> + std::convert::AsRef<std::ffi::OsStr>>(args: Vec<S>, dir: Option<String>) {
+    let mut cmd = Command::new(get_os_process());
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
-    cmd.arg("--output-type")
-        .arg(codegen_type)
-        .arg("--output")
-        .arg(output)
-        .arg("witx/wasi_experimental_http.witx");
 
-    eprintln!("test {:#?}", cmd);
+    if let Some(dir) = dir {
+        cmd.current_dir(dir);
+    };
+
+    cmd.arg("-c");
+    cmd.arg(
+        args.into_iter()
+            .map(Into::into)
+            .collect::<Vec<String>>()
+            .join(" "),
+    );
+
+    println!("running {:#?}", cmd);
+
     cmd.output().unwrap();
+}
+
+fn get_os_process() -> String {
+    if cfg!(target_os = "windows") {
+        String::from("powershell.exe")
+    } else {
+        String::from("/bin/bash")
+    }
 }
