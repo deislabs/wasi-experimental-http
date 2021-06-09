@@ -20,5 +20,4 @@ url = "2.2.1"
 wasmtime = "0.26"
 wasmtime-wasi = "0.26"
 wasi-common = "0.26"
-wasi-experimental-http = { version = "0.2", path = "../wasi-experimental-http" }
 tracing = { version = "0.1", features = ["log"] }
