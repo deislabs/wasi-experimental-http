@@ -115,6 +115,35 @@ export function _start_(): void {
 }
 ```
 
+### Testing using the `wasmtime-http` binary
+
+This project also adds a convenience binary for testing modules with HTTP
+support, `wasmtime-http` - a simple program that mimics the `wasmtime run`
+command, but also adds support for sending HTTP requests.
+
+````
+➜ cargo run --bin wasmtime-http -- --help
+wasmtime-http 0.1.0
+
+USAGE:
+    wasmtime-http [OPTIONS] <module> [--] [ARGS]...
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -a, --allowed-host <allowed-hosts>...    Host the guest module is allowed to make outbound HTTP requests to
+    -i, --invoke <invoke>                    The name of the function to run [default: _start]
+    -c, --concurrency <max-concurrency>      The maximum number of concurrent requests a module can make to allowed
+                                             hosts
+    -e, --env <NAME=VAL>...                  Pass an environment variable to the program
+
+ARGS:
+    <module>     The path of the WebAssembly module to run
+    <ARGS>...    The arguments to pass to the module```
+````
+
 ### Known limitations
 
 - there is no support for streaming HTTP responses, which this means guest
@@ -138,3 +167,7 @@ additional questions or comments.
 
 [24]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.26.0
 [sockets-wip]: https://github.com/WebAssembly/WASI/pull/312
+
+```
+
+```
