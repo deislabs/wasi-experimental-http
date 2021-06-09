@@ -6,7 +6,6 @@ use reqwest::{Client, Method};
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 use tokio::runtime::Handle;
 use url::Url;
-// use wasi_experimental_http::header_map_to_string;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
@@ -554,7 +553,7 @@ fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpE
 // https://github.com/rust-lang/rust/issues/86125
 
 /// Decode a header map from a string.
-pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
+fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
     for entry in s.lines() {
         let mut parts = entry.splitn(2, ':');
@@ -570,7 +569,7 @@ pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
 }
 
 /// Encode a header map as a string.
-pub fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
+fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
     let mut res = String::new();
     for (name, value) in hm
         .iter()

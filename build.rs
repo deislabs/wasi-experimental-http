@@ -79,7 +79,7 @@ fn generate_from_witx(codegen_type: &str, output: &str) {
     );
 }
 
-fn run<S: Into<String> + std::convert::AsRef<std::ffi::OsStr>>(args: Vec<S>, dir: Option<String>) {
+fn run<S: Into<String> + AsRef<std::ffi::OsStr>>(args: Vec<S>, dir: Option<String>) {
     let mut cmd = Command::new(get_os_process());
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::piped());
