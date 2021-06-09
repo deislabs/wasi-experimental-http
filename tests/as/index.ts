@@ -21,8 +21,10 @@ export function get(): void {
     .send();
 
   check(res, 200, "content-type");
-  let body = res.bodyReadAll();
-  if (String.UTF8.decode(body.buffer) != '"OK"') {
+  let bytes = res.bodyReadAll();
+  let body = String.UTF8.decode(bytes.buffer);
+  if (!body.includes("OK")) {
+    Console.write("got " + body);
     abort();
   }
   res.close();
@@ -61,7 +63,7 @@ function check(
   }
 
   let headers = res.headerGetAll();
-  if(headers.size == 0) {
+  if (headers.size == 0) {
     abort();
   }
 }
