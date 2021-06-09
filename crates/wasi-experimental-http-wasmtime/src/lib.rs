@@ -1,12 +1,12 @@
 use anyhow::Error;
 use bytes::Bytes;
 use futures::executor::block_on;
-use http::{HeaderMap, HeaderValue};
+use http::{header::HeaderName, HeaderMap, HeaderValue};
 use reqwest::{Client, Method};
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 use tokio::runtime::Handle;
 use url::Url;
-use wasi_experimental_http::header_map_to_string;
+// use wasi_experimental_http::header_map_to_string;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
@@ -233,7 +233,7 @@ impl HostCalls {
         let method = Method::from_str(string_from_memory(&memory, method_ptr, method_len)?)
             .map_err(|_| HttpError::InvalidMethod)?;
         let req_body = slice_from_memory(&memory, req_body_ptr, req_body_len)?;
-        let headers = wasi_experimental_http::string_to_header_map(string_from_memory(
+        let headers = string_to_header_map(string_from_memory(
             &memory,
             req_headers_ptr,
             req_headers_len,
@@ -544,6 +544,52 @@ fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpE
         }
         None => Ok(false),
     }
+}
+
+// The following two functions are copied from the `wasi_experimental_http`
+// crate, because the Windows linker apparently cannot handle unresolved
+// symbols from a crate, even when the caller does not actually use any of the
+// external symbols.
+//
+// https://github.com/rust-lang/rust/issues/86125
+
+/// Decode a header map from a string.
+pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
+    let mut headers = HeaderMap::new();
+    for entry in s.lines() {
+        let mut parts = entry.splitn(2, ':');
+        #[allow(clippy::clippy::clippy::or_fun_call)]
+        let k = parts.next().ok_or(anyhow::format_err!(
+            "Invalid serialized header: [{}]",
+            entry
+        ))?;
+        let v = parts.next().unwrap();
+        headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
+    }
+    Ok(headers)
+}
+
+/// Encode a header map as a string.
+pub fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
+    let mut res = String::new();
+    for (name, value) in hm
+        .iter()
+        .map(|(name, value)| (name.as_str(), std::str::from_utf8(value.as_bytes())))
+    {
+        let value = value?;
+        anyhow::ensure!(
+            !name
+                .chars()
+                .any(|x| x.is_control() || "(),/:;<=>?@[\\]{}".contains(x)),
+            "Invalid header name"
+        );
+        anyhow::ensure!(
+            !value.chars().any(|x| x.is_control()),
+            "Invalid header value"
+        );
+        res.push_str(&format!("{}:{}\n", name, value));
+    }
+    Ok(res)
 }
 
 #[test]
