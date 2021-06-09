@@ -5,11 +5,11 @@
 
 ### Types list:
 
-\[**[All](#types)**\] - \[_[`http_error`](#http_error)_\] - \[_[`status_code`](#status_code)_\] - \[_[`outgoing_body`](#outgoing_body)_\] - \[_[`incoming_body`](#incoming_body)_\] - \[_[`response_handle`](#response_handle)_\] - \[_[`header_value_buf`](#header_value_buf)_\] - \[_[`written_bytes`](#written_bytes)_\]
+[**[All](#types)**] - [_[`http_error`](#http_error)_] - [_[`status_code`](#status_code)_] - [_[`outgoing_body`](#outgoing_body)_] - [_[`incoming_body`](#incoming_body)_] - [_[`response_handle`](#response_handle)_] - [_[`header_value_buf`](#header_value_buf)_] - [_[`written_bytes`](#written_bytes)_]
 
 ### Functions list:
 
-\[**[All](#functions)**\] - \[[`req()`](#req)\] - \[[`close()`](#close)\] - \[[`header_get()`](#header_get)\] - \[[`headers_get_all()`](#headers_get_all)\] - \[[`body_read()`](#body_read)\]
+[**[All](#functions)**] - [[`req()`](#req)] - [[`close()`](#close)] - [[`header_get()`](#header_get)] - [[`headers_get_all()`](#headers_get_all)] - [[`body_read()`](#body_read)]
 
 ## Types
 
