@@ -2,7 +2,6 @@
 mod tests {
     use anyhow::Error;
     use std::time::Instant;
-    // use wasi_cap_std_sync::WasiCtxBuilder;
     use wasi_experimental_http_wasmtime::HttpCtx;
     use wasmtime::*;
     use wasmtime_wasi::sync::WasiCtxBuilder;
