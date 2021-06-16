@@ -2,8 +2,8 @@ use anyhow::{bail, Error};
 use structopt::StructOpt;
 use wasi_cap_std_sync::WasiCtxBuilder;
 use wasi_experimental_http_wasmtime::HttpCtx;
-use wasmtime::{Func, Instance, Linker, Store, Val, ValType};
-use wasmtime_wasi::Wasi;
+use wasmtime::{AsContextMut, Engine, Func, Instance, Linker, Store, Val, ValType};
+use wasmtime_wasi::*;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmtime-http")]
@@ -51,12 +51,13 @@ async fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     let method = opt.invoke.clone();
     // println!("{:?}", opt);
-    let instance = create_instance(opt.module, opt.vars, opt.allowed_hosts, opt.max_concurrency)?;
+    let (instance, mut store) =
+        create_instance(opt.module, opt.vars, opt.allowed_hosts, opt.max_concurrency)?;
     let func = instance
-        .get_func(method.as_str())
+        .get_func(&mut store, method.as_str())
         .unwrap_or_else(|| panic!("cannot find function {}", method));
 
-    invoke_func(func, opt.module_args)?;
+    invoke_func(func, opt.module_args, &mut store)?;
 
     Ok(())
 }
@@ -66,33 +67,34 @@ fn create_instance(
     vars: Vec<(String, String)>,
     allowed_hosts: Option<Vec<String>>,
     max_concurrent_requests: Option<u32>,
-) -> Result<Instance, Error> {
-    let store = Store::default();
-    let mut linker = Linker::new(&store);
+) -> Result<(Instance, Store<WasiCtx>), Error> {
+    let engine = Engine::default();
+    let mut linker = Linker::new(&engine);
 
     let ctx = WasiCtxBuilder::new()
         .inherit_stdin()
         .inherit_stdout()
         .inherit_stderr()
         .envs(&vars)?
-        .build()?;
+        .build();
 
-    let wasi = Wasi::new(&store, ctx);
-    wasi.add_to_linker(&mut linker)?;
+    let mut store = Store::new(&engine, ctx);
+    wasmtime_wasi::add_to_linker(&mut linker, |cx| cx)?;
+
     // Link `wasi_experimental_http`
     let http = HttpCtx::new(allowed_hosts, max_concurrent_requests)?;
     http.add_to_linker(&mut linker)?;
 
     let module = wasmtime::Module::from_file(store.engine(), filename)?;
-    let instance = linker.instantiate(&module)?;
+    let instance = linker.instantiate(&mut store, &module)?;
 
-    Ok(instance)
+    Ok((instance, store))
 }
 
 // Invoke function given module arguments and print results.
 // Adapted from https://github.com/bytecodealliance/wasmtime/blob/main/src/commands/run.rs.
-fn invoke_func(func: Func, args: Vec<String>) -> Result<(), Error> {
-    let ty = func.ty();
+fn invoke_func(func: Func, args: Vec<String>, mut store: impl AsContextMut) -> Result<(), Error> {
+    let ty = func.ty(&mut store);
 
     let mut args = args.iter();
     let mut values = Vec::new();
@@ -112,7 +114,7 @@ fn invoke_func(func: Func, args: Vec<String>) -> Result<(), Error> {
         });
     }
 
-    let results = func.call(&values)?;
+    let results = func.call(&mut store, &values)?;
     for result in results.into_vec() {
         match result {
             Val::I32(i) => println!("{}", i),

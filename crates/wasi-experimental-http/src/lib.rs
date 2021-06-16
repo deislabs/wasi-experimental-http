@@ -175,10 +175,10 @@ impl Response {
             Ok(written) => {
                 buf.truncate(written);
                 let str = String::from_utf8(buf)?;
-                return Ok(string_to_header_map(&str)?);
+                Ok(string_to_header_map(&str)?)
             }
-            Err(e) => return Err(e.into()),
-        };
+            Err(e) => Err(e.into()),
+        }
     }
 }
 

@@ -3,9 +3,14 @@ use bytes::Bytes;
 use futures::executor::block_on;
 use http::{header::HeaderName, HeaderMap, HeaderValue};
 use reqwest::{Client, Method};
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, PoisonError, RwLock},
+};
 use tokio::runtime::Handle;
 use url::Url;
+use wasi_common::WasiCtx;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
@@ -82,6 +87,24 @@ impl From<HttpError> for u32 {
     }
 }
 
+impl From<PoisonError<std::sync::RwLockReadGuard<'_, State>>> for HttpError {
+    fn from(_: PoisonError<std::sync::RwLockReadGuard<'_, State>>) -> Self {
+        HttpError::RuntimeError
+    }
+}
+
+impl From<PoisonError<std::sync::RwLockWriteGuard<'_, State>>> for HttpError {
+    fn from(_: PoisonError<std::sync::RwLockWriteGuard<'_, State>>) -> Self {
+        HttpError::RuntimeError
+    }
+}
+
+impl From<PoisonError<&mut State>> for HttpError {
+    fn from(_: PoisonError<&mut State>) -> Self {
+        HttpError::RuntimeError
+    }
+}
+
 struct HostCalls;
 
 impl HostCalls {
@@ -91,48 +114,52 @@ impl HostCalls {
     // TODO (@radu-matei)
     // Fix the clippy warning.
     #[allow(clippy::unnecessary_wraps)]
-    fn close(
-        st: Rc<RefCell<State>>,
-        _caller: Caller<'_>,
-        handle: WasiHttpHandle,
-    ) -> Result<(), HttpError> {
-        st.borrow_mut().responses.remove(&handle);
+    fn close(st: Arc<RwLock<State>>, handle: WasiHttpHandle) -> Result<(), HttpError> {
+        let mut st = st.write()?;
+        st.responses.remove(&handle);
         Ok(())
     }
 
     /// Read `buf_len` bytes from the response of `handle` and
     /// write them into `buf_ptr`.
     fn body_read(
-        st: Rc<RefCell<State>>,
-        caller: Caller<'_>,
+        st: Arc<RwLock<State>>,
+        memory: Memory,
+        mut store: impl AsContextMut,
         handle: WasiHttpHandle,
         buf_ptr: u32,
         buf_len: u32,
         buf_read_ptr: u32,
     ) -> Result<(), HttpError> {
-        let mut st = st.borrow_mut();
-        // Get the current response body.
-        let mut body = &mut st
-            .responses
-            .get_mut(&handle)
-            .ok_or(HttpError::InvalidHandle(handle))?
-            .body;
-        let memory = memory_get(caller)?;
+        let mut st = st.write()?;
+
+        let mut body = &mut st.responses.get_mut(&handle).unwrap().body;
+        let mut context = store.as_context_mut();
+
         // Write at most either the remaining of the response body, or the entire
         // length requested by the guest.
         let available = std::cmp::min(buf_len as _, body.bytes.len() - body.pos);
-        memory.write(buf_ptr as _, &body.bytes[body.pos..body.pos + available])?;
+        memory.write(
+            &mut context,
+            buf_ptr as _,
+            &body.bytes[body.pos..body.pos + available],
+        )?;
         body.pos += available;
         // Write the number of bytes written back to the guest.
-        memory.write(buf_read_ptr as _, &(available as u32).to_le_bytes())?;
+        memory.write(
+            &mut context,
+            buf_read_ptr as _,
+            &(available as u32).to_le_bytes(),
+        )?;
         Ok(())
     }
 
     /// Get a response header value given a key.
     #[allow(clippy::clippy::too_many_arguments)]
     fn header_get(
-        st: Rc<RefCell<State>>,
-        caller: Caller<'_>,
+        st: Arc<RwLock<State>>,
+        memory: Memory,
+        mut store: impl AsContextMut,
         handle: WasiHttpHandle,
         name_ptr: u32,
         name_len: u32,
@@ -140,39 +167,48 @@ impl HostCalls {
         value_len: u32,
         value_written_ptr: u32,
     ) -> Result<(), HttpError> {
-        let st = st.borrow();
+        let st = st.read()?;
+
         // Get the current response headers.
         let headers = &st
             .responses
             .get(&handle)
             .ok_or(HttpError::InvalidHandle(handle))?
             .headers;
-        let memory = memory_get(caller)?;
+
+        let mut store = store.as_context_mut();
+
         // Read the header key from the module's memory.
-        let key = string_from_memory(&memory, name_ptr, name_len)?.to_ascii_lowercase();
+        let key = string_from_memory(&memory, &mut store, name_ptr, name_len)?.to_ascii_lowercase();
         // Attempt to get the corresponding value from the resposne headers.
         let value = headers.get(key).ok_or(HttpError::HeaderNotFound)?;
         if value.len() > value_len as _ {
             return Err(HttpError::BufferTooSmall);
         }
         // Write the header value and its length.
-        memory.write(value_ptr as _, value.as_bytes())?;
-        memory.write(value_written_ptr as _, &(value.len() as u32).to_le_bytes())?;
+        memory.write(&mut store, value_ptr as _, value.as_bytes())?;
+        memory.write(
+            &mut store,
+            value_written_ptr as _,
+            &(value.len() as u32).to_le_bytes(),
+        )?;
         Ok(())
     }
 
     fn headers_get_all(
-        st: Rc<RefCell<State>>,
-        caller: Caller<'_>,
+        st: Arc<RwLock<State>>,
+        memory: Memory,
+        mut store: impl AsContextMut,
         handle: WasiHttpHandle,
         buf_ptr: u32,
         buf_len: u32,
         buf_written_ptr: u32,
     ) -> Result<(), HttpError> {
-        let mut st = st.borrow_mut();
-        let headers = &mut st
+        let st = st.read()?;
+
+        let headers = &st
             .responses
-            .get_mut(&handle)
+            .get(&handle)
             .ok_or(HttpError::InvalidHandle(handle))?
             .headers;
 
@@ -181,14 +217,18 @@ impl HostCalls {
             Err(_) => return Err(HttpError::RuntimeError),
         };
 
-        let memory = memory_get(caller)?;
-
         if headers.len() > buf_len as _ {
             return Err(HttpError::BufferTooSmall);
         }
 
-        memory.write(buf_ptr as _, headers.as_bytes())?;
-        memory.write(buf_written_ptr as _, &(headers.len() as u32).to_le_bytes())?;
+        let mut store = store.as_context_mut();
+
+        memory.write(&mut store, buf_ptr as _, headers.as_bytes())?;
+        memory.write(
+            &mut store,
+            buf_written_ptr as _,
+            &(headers.len() as u32).to_le_bytes(),
+        )?;
         Ok(())
     }
 
@@ -196,10 +236,11 @@ impl HostCalls {
     /// the request data.
     #[allow(clippy::clippy::too_many_arguments)]
     fn req(
-        st: Rc<RefCell<State>>,
+        st: Arc<RwLock<State>>,
         allowed_hosts: Option<&[String]>,
         max_concurrent_requests: Option<u32>,
-        caller: Caller<'_>,
+        memory: Memory,
+        mut store: impl AsContextMut,
         url_ptr: u32,
         url_len: u32,
         method_ptr: u32,
@@ -214,33 +255,35 @@ impl HostCalls {
         let span = tracing::trace_span!("req");
         let _enter = span.enter();
 
-        let mut st = st.borrow_mut();
+        let mut st = st.write()?;
         if let Some(max) = max_concurrent_requests {
             if st.responses.len() > (max - 1) as usize {
                 return Err(HttpError::TooManySessions);
             }
         };
 
-        let memory = memory_get(caller)?;
+        let mut store = store.as_context_mut();
+
         // Read the request parts from the module's linear memory and check early if
         // the guest is allowed to make a request to the given URL.
-        let url = string_from_memory(&memory, url_ptr, url_len)?;
-        if !is_allowed(url, allowed_hosts)? {
-            return Err(HttpError::DestinationNotAllowed(url.to_string()));
+        let url = string_from_memory(&memory, &mut store, url_ptr, url_len)?;
+        if !is_allowed(url.as_str(), allowed_hosts)? {
+            return Err(HttpError::DestinationNotAllowed(url));
         }
 
-        let method = Method::from_str(string_from_memory(&memory, method_ptr, method_len)?)
-            .map_err(|_| HttpError::InvalidMethod)?;
-        let req_body = slice_from_memory(&memory, req_body_ptr, req_body_len)?;
-        let headers = string_to_header_map(string_from_memory(
-            &memory,
-            req_headers_ptr,
-            req_headers_len,
-        )?)
+        let method = Method::from_str(
+            string_from_memory(&memory, &mut store, method_ptr, method_len)?.as_str(),
+        )
+        .map_err(|_| HttpError::InvalidMethod)?;
+        let req_body = slice_from_memory(&memory, &mut store, req_body_ptr, req_body_len)?;
+        let headers = string_to_header_map(
+            string_from_memory(&memory, &mut store, req_headers_ptr, req_headers_len)?.as_str(),
+        )
         .map_err(|_| HttpError::InvalidEncoding)?;
 
         // Send the request.
-        let (status, resp_headers, resp_body) = request(url, headers, method, req_body)?;
+        let (status, resp_headers, resp_body) =
+            request(url.as_str(), headers, method, req_body.as_slice())?;
         tracing::debug!(
             status,
             ?resp_headers,
@@ -249,7 +292,7 @@ impl HostCalls {
         );
 
         // Write the status code to the guest.
-        memory.write(status_code_ptr as _, &status.to_le_bytes())?;
+        memory.write(&mut store, status_code_ptr as _, &status.to_le_bytes())?;
 
         // Construct the response, add it to the current state, and write
         // the handle to the guest.
@@ -260,9 +303,7 @@ impl HostCalls {
                 pos: 0,
             },
         };
-        // TODO (@radu-matei)
-        //
-        // Can we work around having to maintain the current handle?
+
         let initial_handle = st.current_handle;
         while st.responses.get(&st.current_handle).is_some() {
             st.current_handle += 1;
@@ -272,7 +313,7 @@ impl HostCalls {
         }
         let handle = st.current_handle;
         st.responses.insert(handle, response);
-        memory.write(res_handle_ptr as _, &handle.to_le_bytes())?;
+        memory.write(&mut store, res_handle_ptr as _, &handle.to_le_bytes())?;
 
         Ok(())
     }
@@ -280,8 +321,8 @@ impl HostCalls {
 
 /// Experimental HTTP extension object for Wasmtime.
 pub struct HttpCtx {
-    state: Rc<RefCell<State>>,
-    allowed_hosts: Rc<Option<Vec<String>>>,
+    state: Arc<RwLock<State>>,
+    allowed_hosts: Arc<Option<Vec<String>>>,
     max_concurrent_requests: Option<u32>,
 }
 
@@ -296,8 +337,8 @@ impl HttpCtx {
         allowed_hosts: Option<Vec<String>>,
         max_concurrent_requests: Option<u32>,
     ) -> Result<Self, Error> {
-        let state = Rc::new(RefCell::new(State::default()));
-        let allowed_hosts = Rc::new(allowed_hosts);
+        let state = Arc::new(RwLock::new(State::default()));
+        let allowed_hosts = Arc::new(allowed_hosts);
         Ok(HttpCtx {
             state,
             allowed_hosts,
@@ -306,13 +347,13 @@ impl HttpCtx {
     }
 
     /// Register the module with the Wasmtime linker.
-    pub fn add_to_linker(&self, linker: &mut Linker) -> Result<(), Error> {
+    pub fn add_to_linker(&self, linker: &mut Linker<WasiCtx>) -> Result<(), Error> {
         let st = self.state.clone();
-        linker.func(
+        linker.func_wrap(
             Self::MODULE,
             "close",
-            move |caller: Caller<'_>, handle: WasiHttpHandle| -> u32 {
-                match HostCalls::close(st.clone(), caller, handle) {
+            move |handle: WasiHttpHandle| -> u32 {
+                match HostCalls::close(st.clone(), handle) {
                     Ok(()) => 0,
                     Err(e) => e.into(),
                 }
@@ -320,18 +361,25 @@ impl HttpCtx {
         )?;
 
         let st = self.state.clone();
-        linker.func(
+        linker.func_wrap(
             Self::MODULE,
             "body_read",
-            move |caller: Caller<'_>,
+            move |mut caller: Caller<'_, WasiCtx>,
                   handle: WasiHttpHandle,
                   buf_ptr: u32,
                   buf_len: u32,
                   buf_read_ptr: u32|
                   -> u32 {
+                let memory = match memory_get(&mut caller) {
+                    Ok(m) => m,
+                    Err(e) => return e.into(),
+                };
+                let ctx = caller.as_context_mut();
+
                 match HostCalls::body_read(
                     st.clone(),
-                    caller,
+                    memory,
+                    ctx,
                     handle,
                     buf_ptr,
                     buf_len,
@@ -344,10 +392,10 @@ impl HttpCtx {
         )?;
 
         let st = self.state.clone();
-        linker.func(
+        linker.func_wrap(
             Self::MODULE,
             "header_get",
-            move |caller: Caller<'_>,
+            move |mut caller: Caller<'_, WasiCtx>,
                   handle: WasiHttpHandle,
                   name_ptr: u32,
                   name_len: u32,
@@ -355,9 +403,16 @@ impl HttpCtx {
                   value_len: u32,
                   value_written_ptr: u32|
                   -> u32 {
+                let memory = match memory_get(&mut caller) {
+                    Ok(m) => m,
+                    Err(e) => return e.into(),
+                };
+                let ctx = caller.as_context_mut();
+
                 match HostCalls::header_get(
                     st.clone(),
-                    caller,
+                    memory,
+                    ctx,
                     handle,
                     name_ptr,
                     name_len,
@@ -372,18 +427,26 @@ impl HttpCtx {
         )?;
 
         let st = self.state.clone();
-        linker.func(
+        linker.func_wrap(
             Self::MODULE,
             "headers_get_all",
-            move |caller: Caller<'_>,
+            move |mut caller: Caller<'_, WasiCtx>,
                   handle: WasiHttpHandle,
                   buf_ptr: u32,
                   buf_len: u32,
                   buf_read_ptr: u32|
                   -> u32 {
+                let memory = match memory_get(&mut caller) {
+                    Ok(m) => m,
+                    Err(e) => return e.into(),
+                };
+
+                let ctx = caller.as_context_mut();
+
                 match HostCalls::headers_get_all(
                     st.clone(),
-                    caller,
+                    memory,
+                    ctx,
                     handle,
                     buf_ptr,
                     buf_len,
@@ -398,10 +461,10 @@ impl HttpCtx {
         let st = self.state.clone();
         let allowed_hosts = self.allowed_hosts.clone();
         let max_concurrent_requests = self.max_concurrent_requests;
-        linker.func(
+        linker.func_wrap(
             Self::MODULE,
             "req",
-            move |caller: Caller<'_>,
+            move |mut caller: Caller<'_, WasiCtx>,
                   url_ptr: u32,
                   url_len: u32,
                   method_ptr: u32,
@@ -413,11 +476,18 @@ impl HttpCtx {
                   status_code_ptr: u32,
                   res_handle_ptr: u32|
                   -> u32 {
+                let memory = match memory_get(&mut caller) {
+                    Ok(m) => m,
+                    Err(e) => return e.into(),
+                };
+                let ctx = caller.as_context_mut();
+
                 match HostCalls::req(
                     st.clone(),
                     allowed_hosts.as_deref(),
                     max_concurrent_requests,
-                    caller,
+                    memory,
+                    ctx,
                     url_ptr,
                     url_len,
                     method_ptr,
@@ -498,7 +568,7 @@ fn request(
 /// Get the exported memory block called `memory`.
 /// This will return an `HttpError::MemoryNotFound` if the module does
 /// not export a memory block.
-fn memory_get(caller: Caller<'_>) -> Result<Memory, HttpError> {
+fn memory_get(caller: &mut Caller<'_, wasi_common::WasiCtx>) -> Result<Memory, HttpError> {
     if let Some(Extern::Memory(mem)) = caller.get_export(MEMORY) {
         Ok(mem)
     } else {
@@ -509,20 +579,32 @@ fn memory_get(caller: Caller<'_>) -> Result<Memory, HttpError> {
 /// Get a slice of length `len` from `memory`, starting at `offset`.
 /// This will return an `HttpError::BufferTooSmall` if the size of the
 /// requested slice is larger than the memory size.
-fn slice_from_memory(memory: &Memory, offset: u32, len: u32) -> Result<&[u8], HttpError> {
+fn slice_from_memory(
+    memory: &Memory,
+    mut ctx: impl AsContextMut,
+    offset: u32,
+    len: u32,
+) -> Result<Vec<u8>, HttpError> {
     let required_memory_size = offset.checked_add(len).ok_or(HttpError::BufferTooSmall)? as usize;
-    if required_memory_size > memory.data_size() {
+
+    if required_memory_size > memory.data_size(&mut ctx) {
         return Err(HttpError::BufferTooSmall);
     }
-    let slice =
-        &unsafe { memory.data_unchecked() }[offset as usize..offset as usize + len as usize];
-    Ok(slice)
+
+    let mut buf = vec![0u8; len as usize];
+    memory.read(&mut ctx, offset as usize, buf.as_mut_slice())?;
+    Ok(buf)
 }
 
 /// Read a string of byte length `len` from `memory`, starting at `offset`.
-fn string_from_memory(memory: &Memory, offset: u32, len: u32) -> Result<&str, HttpError> {
-    let slice = slice_from_memory(memory, offset, len)?;
-    Ok(std::str::from_utf8(slice)?)
+fn string_from_memory(
+    memory: &Memory,
+    ctx: impl AsContextMut,
+    offset: u32,
+    len: u32,
+) -> Result<String, HttpError> {
+    let slice = slice_from_memory(memory, ctx, offset, len)?;
+    Ok(std::str::from_utf8(&slice)?.to_string())
 }
 
 /// Check if guest module is allowed to send request to URL, based on the list of
