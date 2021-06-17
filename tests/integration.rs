@@ -2,10 +2,10 @@
 mod tests {
     use anyhow::Error;
     use std::time::Instant;
-    use wasi_cap_std_sync::WasiCtxBuilder;
     use wasi_experimental_http_wasmtime::HttpCtx;
     use wasmtime::*;
-    use wasmtime_wasi::Wasi;
+    use wasmtime_wasi::sync::WasiCtxBuilder;
+    use wasmtime_wasi::*;
 
     // We run the same test in a Tokio and non-Tokio environment
     // in order to make sure both scenarios are working.
@@ -78,17 +78,17 @@ mod tests {
 
     fn make_concurrent_requests(module: String) {
         let func = "concurrent";
-        let instance = create_instance(
+        let (instance, mut store) = create_instance(
             module,
             Some(vec!["https://api.brigade.sh".to_string()]),
             Some(2),
         )
         .unwrap();
         let func = instance
-            .get_func(func)
+            .get_func(&mut store, func)
             .unwrap_or_else(|| panic!("cannot find function {}", func));
 
-        func.call(&[]).unwrap();
+        func.call(&mut store, &[]).unwrap();
     }
 
     fn setup_tests(allowed_domains: Option<Vec<String>>, max_concurrent_requests: Option<u32>) {
@@ -99,23 +99,27 @@ mod tests {
         let test_funcs = vec!["get", "post"];
 
         for module in modules {
-            let instance = create_instance(
+            let (instance, store) = create_instance(
                 module.to_string(),
                 allowed_domains.clone(),
                 max_concurrent_requests,
             )
             .unwrap();
-            run_tests(&instance, &test_funcs).unwrap();
+            run_tests(&instance, store, &test_funcs).unwrap();
         }
     }
 
     /// Execute the module's `_start` function.
-    fn run_tests(instance: &Instance, test_funcs: &[&str]) -> Result<(), Error> {
+    fn run_tests(
+        instance: &Instance,
+        mut store: Store<WasiCtx>,
+        test_funcs: &[&str],
+    ) -> Result<(), Error> {
         for func_name in test_funcs.iter() {
             let func = instance
-                .get_func(func_name)
+                .get_func(&mut store, func_name)
                 .unwrap_or_else(|| panic!("cannot find function {}", func_name));
-            func.call(&[])?;
+            func.call(&mut store, &[])?;
         }
 
         Ok(())
@@ -127,28 +131,29 @@ mod tests {
         filename: String,
         allowed_domains: Option<Vec<String>>,
         max_concurrent_requests: Option<u32>,
-    ) -> Result<Instance, Error> {
+    ) -> Result<(Instance, Store<WasiCtx>), Error> {
         let start = Instant::now();
-        let store = Store::default();
-        let mut linker = Linker::new(&store);
+        let engine = Engine::default();
+        let mut linker = Linker::new(&engine);
 
         let ctx = WasiCtxBuilder::new()
             .inherit_stdin()
             .inherit_stdout()
             .inherit_stderr()
-            .build()?;
+            .build();
 
-        let wasi = Wasi::new(&store, ctx);
-        wasi.add_to_linker(&mut linker)?;
+        let mut store = Store::new(&engine, ctx);
+        wasmtime_wasi::add_to_linker(&mut linker, |cx| cx)?;
+
         // Link `wasi_experimental_http`
         let http = HttpCtx::new(allowed_domains, max_concurrent_requests)?;
         http.add_to_linker(&mut linker)?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;
 
-        let instance = linker.instantiate(&module)?;
+        let instance = linker.instantiate(&mut store, &module)?;
         let duration = start.elapsed();
         println!("module instantiation time: {:#?}", duration);
-        Ok(instance)
+        Ok((instance, store))
     }
 }

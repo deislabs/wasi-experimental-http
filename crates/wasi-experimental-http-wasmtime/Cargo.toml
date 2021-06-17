@@ -17,7 +17,7 @@ reqwest = { version = "0.11", default-features = true, features = ["json", "bloc
 thiserror = "1.0"
 tokio = { version = "1.4.0", features = ["full"] }
 url = "2.2.1"
-wasmtime = "0.26"
-wasmtime-wasi = "0.26"
-wasi-common = "0.26"
+wasmtime = "0.28"
+wasmtime-wasi = "0.28"
+wasi-common = "0.28"
 tracing = { version = "0.1", features = ["log"] }
