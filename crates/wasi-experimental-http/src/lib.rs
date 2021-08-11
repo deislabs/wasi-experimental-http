@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 #[allow(dead_code)]
 #[allow(clippy::mut_from_ref)]
-#[allow(clippy::clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) mod raw;
 
 /// HTTP errors
@@ -240,7 +240,7 @@ pub fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
     for entry in s.lines() {
         let mut parts = entry.splitn(2, ':');
-        #[allow(clippy::clippy::clippy::or_fun_call)]
+        #[allow(clippy::or_fun_call)]
         let k = parts.next().ok_or(anyhow::format_err!(
             "Invalid serialized header: [{}]",
             entry

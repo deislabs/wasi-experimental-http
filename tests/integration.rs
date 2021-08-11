@@ -147,7 +147,7 @@ mod tests {
 
         // Link `wasi_experimental_http`
         let http = HttpCtx::new(allowed_domains, max_concurrent_requests)?;
-        http.add_to_linker(&mut linker)?;
+        http.add_to_generic_linker(&mut linker)?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;
 

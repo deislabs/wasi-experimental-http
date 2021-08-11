@@ -155,7 +155,7 @@ impl HostCalls {
     }
 
     /// Get a response header value given a key.
-    #[allow(clippy::clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn header_get(
         st: Arc<RwLock<State>>,
         memory: Memory,
@@ -234,7 +234,7 @@ impl HostCalls {
 
     /// Execute a request for a guest module, given
     /// the request data.
-    #[allow(clippy::clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn req(
         st: Arc<RwLock<State>>,
         allowed_hosts: Option<&[String]>,
@@ -346,8 +346,7 @@ impl HttpCtx {
         })
     }
 
-    /// Register the module with the Wasmtime linker.
-    pub fn add_to_linker(&self, linker: &mut Linker<WasiCtx>) -> Result<(), Error> {
+    pub fn add_to_generic_linker<T>(&self, linker: &mut Linker<T>) -> Result<(), Error> {
         let st = self.state.clone();
         linker.func_wrap(
             Self::MODULE,
@@ -364,7 +363,7 @@ impl HttpCtx {
         linker.func_wrap(
             Self::MODULE,
             "body_read",
-            move |mut caller: Caller<'_, WasiCtx>,
+            move |mut caller: Caller<'_, T>,
                   handle: WasiHttpHandle,
                   buf_ptr: u32,
                   buf_len: u32,
@@ -374,6 +373,7 @@ impl HttpCtx {
                     Ok(m) => m,
                     Err(e) => return e.into(),
                 };
+
                 let ctx = caller.as_context_mut();
 
                 match HostCalls::body_read(
@@ -395,7 +395,7 @@ impl HttpCtx {
         linker.func_wrap(
             Self::MODULE,
             "header_get",
-            move |mut caller: Caller<'_, WasiCtx>,
+            move |mut caller: Caller<'_, T>,
                   handle: WasiHttpHandle,
                   name_ptr: u32,
                   name_len: u32,
@@ -407,6 +407,7 @@ impl HttpCtx {
                     Ok(m) => m,
                     Err(e) => return e.into(),
                 };
+
                 let ctx = caller.as_context_mut();
 
                 match HostCalls::header_get(
@@ -430,7 +431,7 @@ impl HttpCtx {
         linker.func_wrap(
             Self::MODULE,
             "headers_get_all",
-            move |mut caller: Caller<'_, WasiCtx>,
+            move |mut caller: Caller<'_, T>,
                   handle: WasiHttpHandle,
                   buf_ptr: u32,
                   buf_len: u32,
@@ -464,7 +465,7 @@ impl HttpCtx {
         linker.func_wrap(
             Self::MODULE,
             "req",
-            move |mut caller: Caller<'_, WasiCtx>,
+            move |mut caller: Caller<'_, T>,
                   url_ptr: u32,
                   url_len: u32,
                   method_ptr: u32,
@@ -480,6 +481,7 @@ impl HttpCtx {
                     Ok(m) => m,
                     Err(e) => return e.into(),
                 };
+
                 let ctx = caller.as_context_mut();
 
                 match HostCalls::req(
@@ -506,6 +508,11 @@ impl HttpCtx {
         )?;
 
         Ok(())
+    }
+
+    /// Register the module with the Wasmtime linker.
+    pub fn add_to_linker(&self, linker: &mut Linker<WasiCtx>) -> Result<(), Error> {
+        self.add_to_generic_linker(linker)
     }
 }
 
@@ -568,7 +575,7 @@ fn request(
 /// Get the exported memory block called `memory`.
 /// This will return an `HttpError::MemoryNotFound` if the module does
 /// not export a memory block.
-fn memory_get(caller: &mut Caller<'_, wasi_common::WasiCtx>) -> Result<Memory, HttpError> {
+fn memory_get<T>(caller: &mut Caller<'_, T>) -> Result<Memory, HttpError> {
     if let Some(Extern::Memory(mem)) = caller.get_export(MEMORY) {
         Ok(mem)
     } else {
@@ -639,7 +646,7 @@ fn string_to_header_map(s: &str) -> Result<HeaderMap, Error> {
     let mut headers = HeaderMap::new();
     for entry in s.lines() {
         let mut parts = entry.splitn(2, ':');
-        #[allow(clippy::clippy::clippy::or_fun_call)]
+        #[allow(clippy::or_fun_call)]
         let k = parts.next().ok_or(anyhow::format_err!(
             "Invalid serialized header: [{}]",
             entry
@@ -674,6 +681,7 @@ fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
 }
 
 #[test]
+#[allow(clippy::bool_assert_comparison)]
 fn test_allowed_domains() {
     let allowed_domains = vec![
         "https://api.brigade.sh".to_string(),
