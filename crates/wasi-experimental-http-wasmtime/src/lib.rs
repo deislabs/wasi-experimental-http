@@ -10,7 +10,6 @@ use std::{
 };
 use tokio::runtime::Handle;
 use url::Url;
-use wasi_common::WasiCtx;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
@@ -346,7 +345,7 @@ impl HttpCtx {
         })
     }
 
-    pub fn add_to_generic_linker<T>(&self, linker: &mut Linker<T>) -> Result<(), Error> {
+    pub fn add_to_linker<T>(&self, linker: &mut Linker<T>) -> Result<(), Error> {
         let st = self.state.clone();
         linker.func_wrap(
             Self::MODULE,
@@ -508,11 +507,6 @@ impl HttpCtx {
         )?;
 
         Ok(())
-    }
-
-    /// Register the module with the Wasmtime linker.
-    pub fn add_to_linker(&self, linker: &mut Linker<WasiCtx>) -> Result<(), Error> {
-        self.add_to_generic_linker(linker)
     }
 }
 
