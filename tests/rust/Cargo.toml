@@ -1,5 +1,5 @@
 [package]
-name = "simple-wasi-http-tests"
+name    = "simple-wasi-http-tests"
 version = "0.1.0"
 authors = ["Radu Matei <radu.matei@microsoft.com>"]
 edition = "2018"
@@ -8,6 +8,6 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-bytes = "1"
-http = "0.2"
+bytes                  = "1"
+http                   = "0.2"
 wasi-experimental-http = { path = "../../crates/wasi-experimental-http" }
