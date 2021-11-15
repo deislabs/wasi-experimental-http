@@ -114,8 +114,9 @@ fn invoke_func(func: Func, args: Vec<String>, mut store: impl AsContextMut) -> R
         });
     }
 
-    let results = func.call(&mut store, &values)?;
-    for result in results.into_vec() {
+    let mut results = vec![];
+    func.call(&mut store, &values, &mut results)?;
+    for result in results {
         match result {
             Val::I32(i) => println!("{}", i),
             Val::I64(i) => println!("{}", i),

@@ -88,7 +88,7 @@ mod tests {
             .get_func(&mut store, func)
             .unwrap_or_else(|| panic!("cannot find function {}", func));
 
-        func.call(&mut store, &[]).unwrap();
+        func.call(&mut store, &[], &mut vec![]).unwrap();
     }
 
     fn setup_tests(allowed_domains: Option<Vec<String>>, max_concurrent_requests: Option<u32>) {
@@ -119,7 +119,7 @@ mod tests {
             let func = instance
                 .get_func(&mut store, func_name)
                 .unwrap_or_else(|| panic!("cannot find function {}", func_name));
-            func.call(&mut store, &[])?;
+            func.call(&mut store, &[], &mut vec![])?;
         }
 
         Ok(())
