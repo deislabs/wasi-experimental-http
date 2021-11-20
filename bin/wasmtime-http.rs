@@ -68,7 +68,11 @@ fn create_instance(
     allowed_hosts: Option<Vec<String>>,
     max_concurrent_requests: Option<u32>,
 ) -> Result<(Instance, Store<WasiCtx>), Error> {
-    let engine = Engine::default();
+    let mut wasmtime_config = wasmtime::Config::default();
+    wasmtime_config.wasm_multi_memory(true);
+    wasmtime_config.wasm_module_linking(true);
+
+    let engine = Engine::new(&wasmtime_config)?;
     let mut linker = Linker::new(&engine);
 
     let ctx = WasiCtxBuilder::new()
