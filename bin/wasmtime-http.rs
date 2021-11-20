@@ -1,3 +1,8 @@
+use std::{
+    ffi::OsStr,
+    path::{Component, PathBuf},
+};
+
 use anyhow::{bail, Error};
 use structopt::StructOpt;
 use wasi_cap_std_sync::WasiCtxBuilder;
@@ -51,8 +56,13 @@ async fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     let method = opt.invoke.clone();
     // println!("{:?}", opt);
-    let (instance, mut store) =
-        create_instance(opt.module, opt.vars, opt.allowed_hosts, opt.max_concurrency)?;
+    let (instance, mut store) = create_instance(
+        opt.module,
+        opt.vars,
+        opt.module_args.clone(),
+        opt.allowed_hosts,
+        opt.max_concurrency,
+    )?;
     let func = instance
         .get_func(&mut store, method.as_str())
         .unwrap_or_else(|| panic!("cannot find function {}", method));
@@ -65,21 +75,24 @@ async fn main() -> Result<(), Error> {
 fn create_instance(
     filename: String,
     vars: Vec<(String, String)>,
+    args: Vec<String>,
     allowed_hosts: Option<Vec<String>>,
     max_concurrent_requests: Option<u32>,
 ) -> Result<(Instance, Store<WasiCtx>), Error> {
     let mut wasmtime_config = wasmtime::Config::default();
     wasmtime_config.wasm_multi_memory(true);
     wasmtime_config.wasm_module_linking(true);
-
     let engine = Engine::new(&wasmtime_config)?;
     let mut linker = Linker::new(&engine);
+
+    let args = compute_argv(filename.clone(), &args);
 
     let ctx = WasiCtxBuilder::new()
         .inherit_stdin()
         .inherit_stdout()
         .inherit_stderr()
         .envs(&vars)?
+        .args(&args)?
         .build();
 
     let mut store = Store::new(&engine, ctx);
@@ -141,4 +154,27 @@ fn parse_env_var(s: &str) -> Result<(String, String), Error> {
         bail!("must be of the form `key=value`");
     }
     Ok((parts[0].to_owned(), parts[1].to_owned()))
+}
+
+fn compute_argv(module: String, args: &Vec<String>) -> Vec<String> {
+    let mut result = Vec::new();
+    let module = PathBuf::from(module);
+    // Add argv[0], which is the program name. Only include the base name of the
+    // main wasm module, to avoid leaking path information.
+    result.push(
+        module
+            .components()
+            .next_back()
+            .map(Component::as_os_str)
+            .and_then(OsStr::to_str)
+            .unwrap_or("")
+            .to_owned(),
+    );
+
+    // Add the remaining arguments.
+    for arg in args.iter() {
+        result.push(arg.clone());
+    }
+
+    result
 }
