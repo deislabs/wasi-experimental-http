@@ -99,6 +99,7 @@ Returned error type: _[`http_error`](#http_error)_
 * **`method`**: `string`
 * **`headers`**: `string`
 * **`body`**: _[`outgoing_body`](#outgoing_body)_
+* **`config`**: `u8` slice
 
 #### Output:
 

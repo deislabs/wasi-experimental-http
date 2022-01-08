@@ -159,6 +159,8 @@ pub fn req(
     headers_len: usize,
     body_ptr: WasiPtr<u8>,
     body_len: usize,
+    config_ptr: WasiPtr<u8>,
+    config_len: usize,
 ) -> Result<(StatusCode, ResponseHandle), Error> {
     #[link(wasm_import_module = "wasi_experimental_http")]
     extern "C" {
@@ -171,6 +173,8 @@ pub fn req(
             headers_len: usize,
             body_ptr: WasiPtr<u8>,
             body_len: usize,
+            config_ptr: WasiPtr<u8>,
+            config_len: usize,
             result_0_ptr: WasiMutPtr<StatusCode>,
             result_1_ptr: WasiMutPtr<ResponseHandle>,
         ) -> HttpError;
@@ -186,6 +190,8 @@ pub fn req(
         headers_len,
         body_ptr,
         body_len,
+        config_ptr,
+        config_len,
         result_0_ptr.as_mut_ptr(),
         result_1_ptr.as_mut_ptr(),
     )};

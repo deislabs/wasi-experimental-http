@@ -1,6 +1,7 @@
 use anyhow::Error;
 use bytes::Bytes;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, StatusCode};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 #[allow(dead_code)]
@@ -182,11 +183,65 @@ impl Response {
     }
 }
 
+/// Represents a private key and X509 cert as a client certificate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Identity {
+    /// Private key
+    pub key: Vec<u8>,
+
+    /// Certificate
+    pub cert: Vec<u8>,
+
+    /// Any intermediate certificates that allow clients to build a chain to a
+    /// trusted root. The chain certificates should be in order from the leaf
+    /// certificate towards the root.
+    pub ca: Vec<u8>,
+}
+
+/// The encoding of the certificate
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CertificateEncoding {
+    #[allow(missing_docs)]
+    Der,
+    #[allow(missing_docs)]
+    Pem,
+}
+
+/// A x509 certificate
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Certificate {
+    /// Which encoding is used by the certificate
+    pub encoding: CertificateEncoding,
+
+    /// Actual certificate
+    pub data: Vec<u8>,
+}
+
+/// A client configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RequestConfig {
+    /// Optional identity to be used when making the request
+    pub identity: Option<Identity>,
+
+    /// Accept invalid hostname. Defaults to false
+    pub accept_invalid_hostnames: bool,
+
+    /// Accept invalid certificates. Defaults to false
+    pub accept_invalid_certificates: bool,
+
+    /// A list of extra root certificate to trust. This can be used to connect
+    /// to servers using self-signed certificates
+    pub extra_root_certificates: Vec<Certificate>,
+}
+
 /// Send an HTTP request.
 /// The function returns a `Response` object, that includes the status,
 /// as well as methods to access the headers and the body.
 #[tracing::instrument]
-pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
+pub fn request(
+    req: Request<Option<Bytes>>,
+    config: Option<RequestConfig>,
+) -> Result<Response, Error> {
     let url = req.uri().to_string();
     tracing::debug!(%url, headers = ?req.headers(), "performing http request using wasmtime function");
 
@@ -196,6 +251,9 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
         None => Default::default(),
         Some(body) => body.as_ref(),
     };
+
+    let req_config = rmp_serde::encode::to_vec(&config.unwrap_or_default())?;
+
     let (status_code, handle) = raw::req(
         url.as_ptr(),
         url.len(),
@@ -205,6 +263,8 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
         headers.len(),
         body.as_ptr(),
         body.len(),
+        req_config.as_ptr(),
+        req_config.len(),
     )?;
     Ok(Response {
         handle,

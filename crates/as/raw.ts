@@ -120,6 +120,8 @@ export declare function req(
     headers_len: usize,
     body_ptr: WasiPtr<u8>,
     body_len: usize,
+    config_ptr: WasiPtr<u8>,
+    config_len: usize,
     result_0_ptr: WasiMutPtr<StatusCode>,
     result_1_ptr: WasiMutPtr<ResponseHandle>
 ): HttpError;

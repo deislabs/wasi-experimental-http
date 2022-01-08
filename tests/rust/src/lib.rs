@@ -4,7 +4,9 @@ use bytes::Bytes;
 pub extern "C" fn get() {
     let url = "https://api.brigade.sh/healthz".to_string();
     let req = http::request::Builder::new().uri(&url).body(None).unwrap();
-    let mut res = wasi_experimental_http::request(req).expect("cannot make get request");
+    let req_cfg = wasi_experimental_http::RequestConfig::default();
+    let mut res =
+        wasi_experimental_http::request(req, Some(req_cfg)).expect("cannot make get request");
     let str = std::str::from_utf8(&res.body_read_all().unwrap())
         .unwrap()
         .to_string();
@@ -30,7 +32,7 @@ pub extern "C" fn post() {
     let b = Bytes::from("Testing with a request body. Does this actually work?");
     let req = req.body(Some(b)).unwrap();
 
-    let mut res = wasi_experimental_http::request(req).expect("cannot make post request");
+    let mut res = wasi_experimental_http::request(req, None).expect("cannot make post request");
     let _ = std::str::from_utf8(&res.body_read_all().unwrap())
         .unwrap()
         .to_string();
@@ -56,5 +58,5 @@ pub extern "C" fn concurrent() {
 
 fn make_req(url: String) -> wasi_experimental_http::Response {
     let req = http::request::Builder::new().uri(&url).body(None).unwrap();
-    wasi_experimental_http::request(req).expect("cannot make get request")
+    wasi_experimental_http::request(req, None).expect("cannot make get request")
 }

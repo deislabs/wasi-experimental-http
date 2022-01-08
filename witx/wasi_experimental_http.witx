@@ -60,6 +60,7 @@
         (param $method string)
         (param $headers string)
         (param $body $outgoing_body)
+        (param $config (in-buffer u8))
         (result $error (expected (tuple $status_code $response_handle) (error $http_error)))
     )
 

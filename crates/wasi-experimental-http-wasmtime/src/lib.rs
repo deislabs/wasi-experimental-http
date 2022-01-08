@@ -248,6 +248,8 @@ impl HostCalls {
         req_headers_len: u32,
         req_body_ptr: u32,
         req_body_len: u32,
+        req_cfg_ptr: u32,
+        req_cfg_len: u32,
         status_code_ptr: u32,
         res_handle_ptr: u32,
     ) -> Result<(), HttpError> {
@@ -257,6 +259,7 @@ impl HostCalls {
         let mut st = st.write()?;
         if let Some(max) = max_concurrent_requests {
             if st.responses.len() > (max - 1) as usize {
+                tracing::error!("Too many sessions");
                 return Err(HttpError::TooManySessions);
             }
         };
@@ -267,6 +270,7 @@ impl HostCalls {
         // the guest is allowed to make a request to the given URL.
         let url = string_from_memory(&memory, &mut store, url_ptr, url_len)?;
         if !is_allowed(url.as_str(), allowed_hosts)? {
+            tracing::error!(destination = url.as_str(), "Destination not allowed");
             return Err(HttpError::DestinationNotAllowed(url));
         }
 
@@ -280,9 +284,16 @@ impl HostCalls {
         )
         .map_err(|_| HttpError::InvalidEncoding)?;
 
+        let req_cfg_raw = slice_from_memory(&memory, &mut store, req_cfg_ptr, req_cfg_len)?;
+        let req_cfg: wasi_experimental_http::RequestConfig =
+            rmp_serde::decode::from_read_ref(&req_cfg_raw).map_err(|e| {
+                tracing::warn!(error = ?e, "Cannot decode RequestConfig");
+                HttpError::InvalidEncoding
+            })?;
+
         // Send the request.
         let (status, resp_headers, resp_body) =
-            request(url.as_str(), headers, method, req_body.as_slice())?;
+            request(url.as_str(), headers, method, req_body.as_slice(), req_cfg)?;
         tracing::debug!(
             status,
             ?resp_headers,
@@ -473,6 +484,8 @@ impl HttpCtx {
                   req_headers_len: u32,
                   req_body_ptr: u32,
                   req_body_len: u32,
+                  req_cfg_ptr: u32,
+                  req_cfg_len: u32,
                   status_code_ptr: u32,
                   res_handle_ptr: u32|
                   -> u32 {
@@ -497,6 +510,8 @@ impl HttpCtx {
                     req_headers_len,
                     req_body_ptr,
                     req_body_len,
+                    req_cfg_ptr,
+                    req_cfg_len,
                     status_code_ptr,
                     res_handle_ptr,
                 ) {
@@ -516,6 +531,7 @@ fn request(
     headers: HeaderMap,
     method: Method,
     body: &[u8],
+    client_cfg: wasi_experimental_http::RequestConfig,
 ) -> Result<(u16, HeaderMap<HeaderValue>, Bytes), HttpError> {
     tracing::debug!(
         %url,
@@ -538,7 +554,40 @@ fn request(
             // advantage of async functions in Wasmtime.
             tracing::trace!("tokio runtime available, spawning request on tokio thread");
             block_on(r.spawn_blocking(move || {
-                let client = Client::builder().build().unwrap();
+                let mut client_builder = Client::builder();
+                if let Some(identity) = client_cfg.identity {
+                    let req_identiy = build_reqwest_identity(identity).map_err(|e| {
+                        tracing::error!(error = ?e, "Cannot convert identity");
+                        HttpError::RuntimeError
+                    })?;
+                    client_builder = client_builder.identity(req_identiy);
+                }
+                for cert in client_cfg.extra_root_certificates {
+                    let c = match cert.encoding {
+                        wasi_experimental_http::CertificateEncoding::Der => {
+                            reqwest::Certificate::from_der(&cert.data)
+                        }
+                        wasi_experimental_http::CertificateEncoding::Pem => {
+                            reqwest::Certificate::from_pem(&cert.data)
+                        }
+                    }?;
+                    client_builder = client_builder.add_root_certificate(c);
+                }
+
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "native-tls")] {
+                        client_builder = client_builder.danger_accept_invalid_hostnames(client_cfg.accept_invalid_hostnames)
+                    } else {
+                        if client_cfg.accept_invalid_hostnames {
+                            tracing::info!("Cannot enable 'accept_invalid_hostnames' when built without 'native-tls' feature")
+                        }
+                    }
+                };
+
+                client_builder = client_builder
+                    .danger_accept_invalid_certs(client_cfg.accept_invalid_certificates);
+
+                let client = client_builder.build().unwrap();
                 let res = block_on(
                     client
                         .request(method, url)
@@ -672,6 +721,31 @@ fn header_map_to_string(hm: &HeaderMap) -> Result<String, Error> {
         res.push_str(&format!("{}:{}\n", name, value));
     }
     Ok(res)
+}
+
+fn build_reqwest_identity(
+    identity: wasi_experimental_http::Identity,
+) -> anyhow::Result<reqwest::Identity> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "native-tls")] {
+            let pkey = openssl::pkey::PKey::private_key_from_pem(&identity.key)?;
+            let cert = openssl::x509::X509::from_pem(&identity.cert)?;
+            let pkcs12 = openssl::pkcs12::Pkcs12::builder().build("", "", &pkey, &cert)?;
+            let pkcs12_der = pkcs12.to_der()?;
+            reqwest::Identity::from_pkcs12_der(&pkcs12_der, "")
+                .map_err(|e| anyhow::anyhow!("Cannot create identity: {:?}", e))
+        } else if #[cfg(feature = "rustls-tls")] {
+            let mut pem_bundle = identity.key.clone();
+            if pem_bundle[pem_bundle.len() - 1] != b'\n' {
+                pem_bundle.insert(pem_bundle.len(), b'\n');
+            }
+            pem_bundle.extend_from_slice(&identity.cert);
+            reqwest::Identity::from_pem(&pem_bundle.into())
+                .map_err(|e| anyhow::anyhow!("Cannot create identity: {:?}", e))
+        } else {
+            Err(anyhow::anyhow!("Cannot create reqwest identity, neither 'native-tls' feature nor '__rusttls' one are enabled"))
+        }
+    }
 }
 
 #[test]
