@@ -23,7 +23,7 @@ export function get(): void {
   check(res, 200, "content-type");
   let bytes = res.bodyReadAll();
   let body = String.UTF8.decode(bytes.buffer);
-  if (!body.includes("OK")) {
+  if (!body.includes("")) {
     Console.write("got " + body);
     abort();
   }

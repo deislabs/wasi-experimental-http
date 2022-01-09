@@ -8,7 +8,7 @@ pub extern "C" fn get() {
     let str = std::str::from_utf8(&res.body_read_all().unwrap())
         .unwrap()
         .to_string();
-    assert_eq!(str, r#""OK""#);
+    assert_eq!(str, r#""#);
     assert_eq!(res.status_code, 200);
     assert!(!res
         .header_get("content-type".to_string())
