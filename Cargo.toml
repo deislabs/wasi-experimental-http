@@ -1,6 +1,6 @@
 [package]
     name    = "wasi-experimental-http-wasmtime-sample"
-    version = "0.8.0"
+    version = "0.9.0"
     authors = [ "Radu Matei <radu.matei@microsoft.com>" ]
     edition = "2021"
 
@@ -14,10 +14,10 @@
     ] }
     structopt = "0.3"
     tokio = { version = "1.4", features = [ "full" ] }
-    wasmtime = "0.33"
-    wasmtime-wasi = "0.33"
-    wasi-common = "0.33"
-    wasi-cap-std-sync = "0.33"
+    wasmtime = "0.34"
+    wasmtime-wasi = "0.34"
+    wasi-common = "0.34"
+    wasi-cap-std-sync = "0.34"
     wasi-experimental-http = { path = "crates/wasi-experimental-http" }
     wasi-experimental-http-wasmtime = { path = "crates/wasi-experimental-http-wasmtime" }
 

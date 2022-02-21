@@ -1,6 +1,6 @@
 [package]
     name        = "wasi-experimental-http-wasmtime"
-    version     = "0.8.0"
+    version     = "0.9.0"
     authors     = [ "Radu Matei <radu.matei@microsoft.com>" ]
     edition     = "2021"
     repository  = "https://github.com/deislabs/wasi-experimental-http"
@@ -21,6 +21,6 @@
     tokio = { version = "1.4.0", features = [ "full" ] }
     tracing = { version = "0.1", features = [ "log" ] }
     url = "2.2.1"
-    wasmtime = "0.33"
-    wasmtime-wasi = "0.33"
-    wasi-common = "0.33"
+    wasmtime = "0.34"
+    wasmtime-wasi = "0.34"
+    wasi-common = "0.34"
