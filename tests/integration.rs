@@ -2,7 +2,7 @@
 mod tests {
     use anyhow::Error;
     use std::time::Instant;
-    use wasi_experimental_http_wasmtime::HttpCtx;
+    use wasi_experimental_http_wasmtime::{HttpCtx, HttpState};
     use wasmtime::*;
     use wasmtime_wasi::sync::WasiCtxBuilder;
     use wasmtime_wasi::*;
@@ -88,7 +88,7 @@ mod tests {
             .get_func(&mut store, func)
             .unwrap_or_else(|| panic!("cannot find function {}", func));
 
-        func.call(&mut store, &[], &mut vec![]).unwrap();
+        func.call(&mut store, &[], &mut []).unwrap();
     }
 
     fn setup_tests(allowed_domains: Option<Vec<String>>, max_concurrent_requests: Option<u32>) {
@@ -112,14 +112,14 @@ mod tests {
     /// Execute the module's `_start` function.
     fn run_tests(
         instance: &Instance,
-        mut store: Store<WasiCtx>,
+        mut store: Store<IntegrationTestsCtx>,
         test_funcs: &[&str],
     ) -> Result<(), Error> {
         for func_name in test_funcs.iter() {
             let func = instance
                 .get_func(&mut store, func_name)
                 .unwrap_or_else(|| panic!("cannot find function {}", func_name));
-            func.call(&mut store, &[], &mut vec![])?;
+            func.call(&mut store, &[], &mut [])?;
         }
 
         Ok(())
@@ -129,25 +129,37 @@ mod tests {
     /// link the WASI imports.
     fn create_instance(
         filename: String,
-        allowed_domains: Option<Vec<String>>,
+        allowed_hosts: Option<Vec<String>>,
         max_concurrent_requests: Option<u32>,
-    ) -> Result<(Instance, Store<WasiCtx>), Error> {
+    ) -> Result<(Instance, Store<IntegrationTestsCtx>), Error> {
         let start = Instant::now();
         let engine = Engine::default();
         let mut linker = Linker::new(&engine);
 
-        let ctx = WasiCtxBuilder::new()
+        let wasi = WasiCtxBuilder::new()
             .inherit_stdin()
             .inherit_stdout()
             .inherit_stderr()
             .build();
 
+        let http = HttpCtx {
+            allowed_hosts,
+            max_concurrent_requests,
+        };
+
+        let ctx = IntegrationTestsCtx { wasi, http };
+
         let mut store = Store::new(&engine, ctx);
-        wasmtime_wasi::add_to_linker(&mut linker, |cx| cx)?;
+        wasmtime_wasi::add_to_linker(
+            &mut linker,
+            |cx: &mut IntegrationTestsCtx| -> &mut WasiCtx { &mut cx.wasi },
+        )?;
 
         // Link `wasi_experimental_http`
-        let http = HttpCtx::new(allowed_domains, max_concurrent_requests)?;
-        http.add_to_linker(&mut linker)?;
+        let http = HttpState::new()?;
+        http.add_to_linker(&mut linker, |cx: &IntegrationTestsCtx| -> &HttpCtx {
+            &cx.http
+        })?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;
 
@@ -155,5 +167,10 @@ mod tests {
         let duration = start.elapsed();
         println!("module instantiation time: {:#?}", duration);
         Ok((instance, store))
+    }
+
+    struct IntegrationTestsCtx {
+        pub wasi: WasiCtx,
+        pub http: HttpCtx,
     }
 }
