@@ -318,34 +318,35 @@ impl HostCalls {
     }
 }
 
-/// Experimental HTTP extension object for Wasmtime.
+/// Per-instance context data used to control whether the guest
+/// is allowed to make an outbound HTTP request.
 pub struct HttpCtx {
-    state: Arc<RwLock<State>>,
-    allowed_hosts: Arc<Option<Vec<String>>>,
-    max_concurrent_requests: Option<u32>,
+    pub allowed_hosts: Option<Vec<String>>,
+    pub max_concurrent_requests: Option<u32>,
 }
 
-impl HttpCtx {
+/// Experimental HTTP extension object for Wasmtime.
+pub struct HttpState {
+    state: Arc<RwLock<State>>,
+}
+
+impl HttpState {
     /// Module the HTTP extension is going to be defined as.
     pub const MODULE: &'static str = "wasi_experimental_http";
 
     /// Create a new HTTP extension object.
     /// `allowed_hosts` may be `None` (no outbound connections allowed)
     /// or a list of allowed host names.
-    pub fn new(
-        allowed_hosts: Option<Vec<String>>,
-        max_concurrent_requests: Option<u32>,
-    ) -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Error> {
         let state = Arc::new(RwLock::new(State::default()));
-        let allowed_hosts = Arc::new(allowed_hosts);
-        Ok(HttpCtx {
-            state,
-            allowed_hosts,
-            max_concurrent_requests,
-        })
+        Ok(HttpState { state })
     }
 
-    pub fn add_to_linker<T>(&self, linker: &mut Linker<T>) -> Result<(), Error> {
+    pub fn add_to_linker<T>(
+        &self,
+        linker: &mut Linker<T>,
+        get_cx: impl Fn(&T) -> &HttpCtx + Send + Sync + Copy + 'static,
+    ) -> Result<(), Error> {
         let st = self.state.clone();
         linker.func_wrap(
             Self::MODULE,
@@ -459,8 +460,6 @@ impl HttpCtx {
         )?;
 
         let st = self.state.clone();
-        let allowed_hosts = self.allowed_hosts.clone();
-        let max_concurrent_requests = self.max_concurrent_requests;
         linker.func_wrap(
             Self::MODULE,
             "req",
@@ -482,11 +481,12 @@ impl HttpCtx {
                 };
 
                 let ctx = caller.as_context_mut();
+                let http_ctx = get_cx(&mut ctx.data());
 
                 match HostCalls::req(
                     st.clone(),
-                    allowed_hosts.as_deref(),
-                    max_concurrent_requests,
+                    http_ctx.allowed_hosts.clone().as_deref(),
+                    http_ctx.max_concurrent_requests,
                     memory,
                     ctx,
                     url_ptr,
@@ -621,8 +621,11 @@ fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpE
         Some(domains) => {
             let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
             let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
-            let a: Vec<&str> = allowed.iter().map(|u| u.host_str().unwrap()).collect();
-            Ok(a.contains(&url_host.as_str()))
+
+            Ok(allowed
+                .iter()
+                .map(|u| u.host_str().unwrap())
+                .any(|x| x == url_host.as_str()))
         }
         None => Ok(false),
     }

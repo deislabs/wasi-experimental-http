@@ -6,7 +6,7 @@ use std::{
 use anyhow::{bail, Error};
 use structopt::StructOpt;
 use wasi_cap_std_sync::WasiCtxBuilder;
-use wasi_experimental_http_wasmtime::HttpCtx;
+use wasi_experimental_http_wasmtime::{HttpCtx, HttpState};
 use wasmtime::{AsContextMut, Engine, Func, Instance, Linker, Store, Val, ValType};
 use wasmtime_wasi::*;
 
@@ -78,7 +78,7 @@ fn create_instance(
     args: Vec<String>,
     allowed_hosts: Option<Vec<String>>,
     max_concurrent_requests: Option<u32>,
-) -> Result<(Instance, Store<WasiCtx>), Error> {
+) -> Result<(Instance, Store<WasmtimeHttpCtx>), Error> {
     let mut wasmtime_config = wasmtime::Config::default();
     wasmtime_config.wasm_multi_memory(true);
     wasmtime_config.wasm_module_linking(true);
@@ -87,7 +87,7 @@ fn create_instance(
 
     let args = compute_argv(filename.clone(), &args);
 
-    let ctx = WasiCtxBuilder::new()
+    let wasi = WasiCtxBuilder::new()
         .inherit_stdin()
         .inherit_stdout()
         .inherit_stderr()
@@ -95,12 +95,20 @@ fn create_instance(
         .args(&args)?
         .build();
 
-    let mut store = Store::new(&engine, ctx);
-    wasmtime_wasi::add_to_linker(&mut linker, |cx| cx)?;
+    let http = HttpCtx {
+        allowed_hosts,
+        max_concurrent_requests,
+    };
 
+    let ctx = WasmtimeHttpCtx { wasi, http };
+
+    let mut store = Store::new(&engine, ctx);
+    wasmtime_wasi::add_to_linker(&mut linker, |cx: &mut WasmtimeHttpCtx| -> &mut WasiCtx {
+        &mut cx.wasi
+    })?;
     // Link `wasi_experimental_http`
-    let http = HttpCtx::new(allowed_hosts, max_concurrent_requests)?;
-    http.add_to_linker(&mut linker)?;
+    let http = HttpState::new()?;
+    http.add_to_linker(&mut linker, |cx: &WasmtimeHttpCtx| -> &HttpCtx { &cx.http })?;
 
     let module = wasmtime::Module::from_file(store.engine(), filename)?;
     let instance = linker.instantiate(&mut store, &module)?;
@@ -156,7 +164,7 @@ fn parse_env_var(s: &str) -> Result<(String, String), Error> {
     Ok((parts[0].to_owned(), parts[1].to_owned()))
 }
 
-fn compute_argv(module: String, args: &Vec<String>) -> Vec<String> {
+fn compute_argv(module: String, args: &[String]) -> Vec<String> {
     let mut result = Vec::new();
     let module = PathBuf::from(module);
     // Add argv[0], which is the program name. Only include the base name of the
@@ -177,4 +185,9 @@ fn compute_argv(module: String, args: &Vec<String>) -> Vec<String> {
     }
 
     result
+}
+
+struct WasmtimeHttpCtx {
+    pub wasi: WasiCtx,
+    pub http: HttpCtx,
 }
