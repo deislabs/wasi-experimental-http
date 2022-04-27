@@ -14,10 +14,10 @@
     ] }
     structopt = "0.3"
     tokio = { version = "1.4", features = [ "full" ] }
-    wasmtime = "0.34"
-    wasmtime-wasi = "0.34"
-    wasi-common = "0.34"
-    wasi-cap-std-sync = "0.34"
+    wasmtime = "0.35"
+    wasmtime-wasi = "0.35"
+    wasi-common = "0.35"
+    wasi-cap-std-sync = "0.35"
     wasi-experimental-http = { path = "crates/wasi-experimental-http" }
     wasi-experimental-http-wasmtime = { path = "crates/wasi-experimental-http-wasmtime" }
 
