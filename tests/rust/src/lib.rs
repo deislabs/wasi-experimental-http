@@ -2,13 +2,13 @@ use bytes::Bytes;
 
 #[no_mangle]
 pub extern "C" fn get() {
-    let url = "https://api.brigade.sh/healthz".to_string();
+    let url = "https://some-random-api.ml/facts/dog".to_string();
     let req = http::request::Builder::new().uri(&url).body(None).unwrap();
     let mut res = wasi_experimental_http::request(req).expect("cannot make get request");
     let str = std::str::from_utf8(&res.body_read_all().unwrap())
         .unwrap()
         .to_string();
-    assert_eq!(str, r#""#);
+    assert_eq!(str.is_empty(), false);
     assert_eq!(res.status_code, 200);
     assert!(!res
         .header_get("content-type".to_string())
@@ -47,7 +47,7 @@ pub extern "C" fn post() {
 #[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn concurrent() {
-    let url = "https://api.brigade.sh/healthz".to_string();
+    let url = "https://some-random-api.ml/facts/dog".to_string();
     // the responses are unused to avoid dropping them.
     let req1 = make_req(url.clone());
     let req2 = make_req(url.clone());

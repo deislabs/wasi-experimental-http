@@ -38,7 +38,7 @@ mod tests {
     fn test_with_allowed_domains() {
         setup_tests(
             Some(vec![
-                "https://api.brigade.sh".to_string(),
+                "https://some-random-api.ml".to_string(),
                 "https://postman-echo.com".to_string(),
             ]),
             None,
@@ -49,7 +49,7 @@ mod tests {
     async fn test_async_with_allowed_domains() {
         setup_tests(
             Some(vec![
-                "https://api.brigade.sh".to_string(),
+                "https://some-random-api.ml".to_string(),
                 "https://postman-echo.com".to_string(),
             ]),
             None,
@@ -80,7 +80,7 @@ mod tests {
         let func = "concurrent";
         let (instance, mut store) = create_instance(
             module,
-            Some(vec!["https://api.brigade.sh".to_string()]),
+            Some(vec!["https://some-random-api.ml".to_string()]),
             Some(2),
         )
         .unwrap();
