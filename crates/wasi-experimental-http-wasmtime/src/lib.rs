@@ -716,3 +716,51 @@ fn test_allowed_domains() {
         is_allowed("https://test.brigade.sh", Some(allowed_domains.as_ref())).unwrap()
     );
 }
+
+
+#[test]
+#[allow(clippy::bool_assert_comparison)]
+fn test_allowed_domains_with_wildcard() {
+    let allowed_domains = vec![
+        "https://example.com".to_string(),
+        "*".to_string(),
+        "http://192.168.0.1".to_string(),
+    ];
+
+    assert_eq!(
+        true,
+        is_allowed(
+            "https://api.brigade.sh/healthz",
+            Some(allowed_domains.as_ref())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed(
+            "https://example.com/some/path/with/more/paths",
+            Some(allowed_domains.as_ref())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed("http://192.168.0.1/login", Some(allowed_domains.as_ref())).unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed("https://test.brigade.sh", Some(allowed_domains.as_ref())).unwrap()
+    );
+}
+
+#[test]
+#[should_panic]
+#[allow(clippy::bool_assert_comparison)]
+fn test_url_parsing() {
+    let allowed_domains = vec![
+        "*".to_string(),
+    ];
+
+    is_allowed("not even a url", Some(allowed_domains.as_ref())).unwrap();
+}
+
