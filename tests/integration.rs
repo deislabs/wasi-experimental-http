@@ -57,6 +57,22 @@ mod tests {
     }
 
     #[test]
+    fn test_with_wildcard_domain() {
+        setup_tests(
+            Some(vec!["*".to_string()]),
+            None,
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_async_with_wildcard_domain() {
+        setup_tests(
+            Some(vec!["*".to_string()]),
+            None,
+        );
+    }
+
+    #[test]
     #[should_panic]
     fn test_concurrent_requests_rust() {
         let module = "target/wasm32-wasi/release/simple_wasi_http_tests.wasm".to_string();

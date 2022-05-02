@@ -481,7 +481,7 @@ impl HttpState {
                 };
 
                 let ctx = caller.as_context_mut();
-                let http_ctx = get_cx(&mut ctx.data());
+                let http_ctx = get_cx(ctx.data());
 
                 match HostCalls::req(
                     st.clone(),
@@ -619,13 +619,18 @@ fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpE
         .to_owned();
     match allowed_hosts {
         Some(domains) => {
-            let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
-            let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
+            // check domains has any "*" wildcard
+            if domains.iter().any(|domain| domain == "*") {
+                Ok(true)
+            } else {
+                let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
+                let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
 
-            Ok(allowed
-                .iter()
-                .map(|u| u.host_str().unwrap())
-                .any(|x| x == url_host.as_str()))
+                Ok(allowed
+                    .iter()
+                    .map(|u| u.host_str().unwrap())
+                    .any(|x| x == url_host.as_str()))
+            }
         }
         None => Ok(false),
     }
