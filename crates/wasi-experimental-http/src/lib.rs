@@ -1,7 +1,10 @@
-use anyhow::Error;
+use anyhow::{Context, Error};
 use bytes::Bytes;
 use http::{self, header::HeaderName, HeaderMap, HeaderValue, Request, StatusCode};
-use std::str::FromStr;
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+};
 
 #[allow(dead_code)]
 #[allow(clippy::mut_from_ref)]
@@ -210,6 +213,43 @@ pub fn request(req: Request<Option<Bytes>>) -> Result<Response, Error> {
         handle,
         status_code: StatusCode::from_u16(status_code)?,
     })
+}
+
+/// Send an HTTP request and get a fully formed HTTP response.
+pub fn send_request(
+    req: http::Request<Option<Bytes>>,
+) -> Result<http::Response<Option<Bytes>>, Error> {
+    request(req)?.try_into()
+}
+
+impl TryFrom<Response> for http::Response<Option<Bytes>> {
+    type Error = anyhow::Error;
+
+    fn try_from(outbound_res: Response) -> Result<Self, Self::Error> {
+        let mut outbound_res = outbound_res;
+        let status = outbound_res.status_code.as_u16();
+        let headers = outbound_res.headers_get_all()?;
+        let body = Some(Bytes::from(outbound_res.body_read_all()?));
+
+        let mut res = http::Response::builder().status(status);
+        append_response_headers(&mut res, &headers)?;
+        Ok(res.body(body)?)
+    }
+}
+
+fn append_response_headers(
+    http_res: &mut http::response::Builder,
+    hm: &HeaderMap,
+) -> Result<(), Error> {
+    let headers = http_res
+        .headers_mut()
+        .context("error building the response headers")?;
+
+    for (k, v) in hm {
+        headers.insert(k, v.clone());
+    }
+
+    Ok(())
 }
 
 /// Encode a header map as a string.
