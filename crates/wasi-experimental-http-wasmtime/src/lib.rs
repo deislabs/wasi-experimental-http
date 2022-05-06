@@ -13,6 +13,7 @@ use url::Url;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
+const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
 
 pub type WasiHttpHandle = u32;
 
@@ -619,8 +620,8 @@ fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpE
         .to_owned();
     match allowed_hosts {
         Some(domains) => {
-            // check domains has any "*" wildcard
-            if domains.iter().any(|domain| domain == "*") {
+            // check domains has any "insecure:allow-all" wildcard
+            if domains.iter().any(|domain| domain == ALLOW_ALL_HOSTS) {
                 Ok(true)
             } else {
                 let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
@@ -717,13 +718,12 @@ fn test_allowed_domains() {
     );
 }
 
-
 #[test]
 #[allow(clippy::bool_assert_comparison)]
 fn test_allowed_domains_with_wildcard() {
     let allowed_domains = vec![
         "https://example.com".to_string(),
-        "*".to_string(),
+        ALLOW_ALL_HOSTS.to_string(),
         "http://192.168.0.1".to_string(),
     ];
 
@@ -757,10 +757,7 @@ fn test_allowed_domains_with_wildcard() {
 #[should_panic]
 #[allow(clippy::bool_assert_comparison)]
 fn test_url_parsing() {
-    let allowed_domains = vec![
-        "*".to_string(),
-    ];
+    let allowed_domains = vec![ALLOW_ALL_HOSTS.to_string()];
 
     is_allowed("not even a url", Some(allowed_domains.as_ref())).unwrap();
 }
-

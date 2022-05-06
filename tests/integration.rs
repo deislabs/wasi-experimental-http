@@ -7,6 +7,8 @@ mod tests {
     use wasmtime_wasi::sync::WasiCtxBuilder;
     use wasmtime_wasi::*;
 
+    const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
+
     // We run the same test in a Tokio and non-Tokio environment
     // in order to make sure both scenarios are working.
 
@@ -58,18 +60,12 @@ mod tests {
 
     #[test]
     fn test_with_wildcard_domain() {
-        setup_tests(
-            Some(vec!["*".to_string()]),
-            None,
-        );
+        setup_tests(Some(vec![ALLOW_ALL_HOSTS.to_string()]), None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_async_with_wildcard_domain() {
-        setup_tests(
-            Some(vec!["*".to_string()]),
-            None,
-        );
+        setup_tests(Some(vec![ALLOW_ALL_HOSTS.to_string()]), None);
     }
 
     #[test]
