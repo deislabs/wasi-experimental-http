@@ -13,6 +13,7 @@ use url::Url;
 use wasmtime::*;
 
 const MEMORY: &str = "memory";
+const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
 
 pub type WasiHttpHandle = u32;
 
@@ -481,7 +482,7 @@ impl HttpState {
                 };
 
                 let ctx = caller.as_context_mut();
-                let http_ctx = get_cx(&mut ctx.data());
+                let http_ctx = get_cx(ctx.data());
 
                 match HostCalls::req(
                     st.clone(),
@@ -619,13 +620,18 @@ fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpE
         .to_owned();
     match allowed_hosts {
         Some(domains) => {
-            let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
-            let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
+            // check domains has any "insecure:allow-all" wildcard
+            if domains.iter().any(|domain| domain == ALLOW_ALL_HOSTS) {
+                Ok(true)
+            } else {
+                let allowed: Result<Vec<_>, _> = domains.iter().map(|d| Url::parse(d)).collect();
+                let allowed = allowed.map_err(|_| HttpError::InvalidUrl)?;
 
-            Ok(allowed
-                .iter()
-                .map(|u| u.host_str().unwrap())
-                .any(|x| x == url_host.as_str()))
+                Ok(allowed
+                    .iter()
+                    .map(|u| u.host_str().unwrap())
+                    .any(|x| x == url_host.as_str()))
+            }
         }
         None => Ok(false),
     }
@@ -710,4 +716,48 @@ fn test_allowed_domains() {
         false,
         is_allowed("https://test.brigade.sh", Some(allowed_domains.as_ref())).unwrap()
     );
+}
+
+#[test]
+#[allow(clippy::bool_assert_comparison)]
+fn test_allowed_domains_with_wildcard() {
+    let allowed_domains = vec![
+        "https://example.com".to_string(),
+        ALLOW_ALL_HOSTS.to_string(),
+        "http://192.168.0.1".to_string(),
+    ];
+
+    assert_eq!(
+        true,
+        is_allowed(
+            "https://api.brigade.sh/healthz",
+            Some(allowed_domains.as_ref())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed(
+            "https://example.com/some/path/with/more/paths",
+            Some(allowed_domains.as_ref())
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed("http://192.168.0.1/login", Some(allowed_domains.as_ref())).unwrap()
+    );
+    assert_eq!(
+        true,
+        is_allowed("https://test.brigade.sh", Some(allowed_domains.as_ref())).unwrap()
+    );
+}
+
+#[test]
+#[should_panic]
+#[allow(clippy::bool_assert_comparison)]
+fn test_url_parsing() {
+    let allowed_domains = vec![ALLOW_ALL_HOSTS.to_string()];
+
+    is_allowed("not even a url", Some(allowed_domains.as_ref())).unwrap();
 }

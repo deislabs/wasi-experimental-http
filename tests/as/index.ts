@@ -16,7 +16,7 @@ export function post(): void {
 }
 
 export function get(): void {
-  let res = new RequestBuilder("https://api.brigade.sh/healthz")
+  let res = new RequestBuilder("https://some-random-api.ml/facts/dog")
     .method(Method.GET)
     .send();
 
@@ -37,7 +37,7 @@ export function concurrent(): void {
 }
 
 function makeReq(): Response {
-  return new RequestBuilder("https://api.brigade.sh/healthz")
+  return new RequestBuilder("https://some-random-api.ml/facts/dog")
     .method(Method.GET)
     .send();
 }

@@ -7,6 +7,8 @@ mod tests {
     use wasmtime_wasi::sync::WasiCtxBuilder;
     use wasmtime_wasi::*;
 
+    const ALLOW_ALL_HOSTS: &str = "insecure:allow-all";
+
     // We run the same test in a Tokio and non-Tokio environment
     // in order to make sure both scenarios are working.
 
@@ -38,7 +40,7 @@ mod tests {
     fn test_with_allowed_domains() {
         setup_tests(
             Some(vec![
-                "https://api.brigade.sh".to_string(),
+                "https://some-random-api.ml".to_string(),
                 "https://postman-echo.com".to_string(),
             ]),
             None,
@@ -49,11 +51,21 @@ mod tests {
     async fn test_async_with_allowed_domains() {
         setup_tests(
             Some(vec![
-                "https://api.brigade.sh".to_string(),
+                "https://some-random-api.ml".to_string(),
                 "https://postman-echo.com".to_string(),
             ]),
             None,
         );
+    }
+
+    #[test]
+    fn test_with_wildcard_domain() {
+        setup_tests(Some(vec![ALLOW_ALL_HOSTS.to_string()]), None);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_async_with_wildcard_domain() {
+        setup_tests(Some(vec![ALLOW_ALL_HOSTS.to_string()]), None);
     }
 
     #[test]
@@ -80,7 +92,7 @@ mod tests {
         let func = "concurrent";
         let (instance, mut store) = create_instance(
             module,
-            Some(vec!["https://api.brigade.sh".to_string()]),
+            Some(vec!["https://some-random-api.ml".to_string()]),
             Some(2),
         )
         .unwrap();
