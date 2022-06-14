@@ -108,7 +108,9 @@ fn create_instance(
     })?;
     // Link `wasi_experimental_http`
     let http = HttpState::new()?;
-    http.add_to_linker(&mut linker, |cx: &WasmtimeHttpCtx| -> &HttpCtx { &cx.http })?;
+    http.add_to_linker(&mut linker, |cx: &WasmtimeHttpCtx| -> HttpCtx {
+        cx.http.clone()
+    })?;
 
     let module = wasmtime::Module::from_file(store.engine(), filename)?;
     let instance = linker.instantiate(&mut store, &module)?;
