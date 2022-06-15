@@ -169,8 +169,8 @@ mod tests {
 
         // Link `wasi_experimental_http`
         let http = HttpState::new()?;
-        http.add_to_linker(&mut linker, |cx: &IntegrationTestsCtx| -> &HttpCtx {
-            &cx.http
+        http.add_to_linker(&mut linker, |cx: &IntegrationTestsCtx| -> HttpCtx {
+            cx.http.clone()
         })?;
 
         let module = wasmtime::Module::from_file(store.engine(), filename)?;

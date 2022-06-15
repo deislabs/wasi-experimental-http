@@ -321,6 +321,7 @@ impl HostCalls {
 
 /// Per-instance context data used to control whether the guest
 /// is allowed to make an outbound HTTP request.
+#[derive(Clone)]
 pub struct HttpCtx {
     pub allowed_hosts: Option<Vec<String>>,
     pub max_concurrent_requests: Option<u32>,
@@ -346,7 +347,7 @@ impl HttpState {
     pub fn add_to_linker<T>(
         &self,
         linker: &mut Linker<T>,
-        get_cx: impl Fn(&T) -> &HttpCtx + Send + Sync + Copy + 'static,
+        get_cx: impl Fn(&T) -> HttpCtx + Send + Sync + 'static,
     ) -> Result<(), Error> {
         let st = self.state.clone();
         linker.func_wrap(
@@ -486,7 +487,7 @@ impl HttpState {
 
                 match HostCalls::req(
                     st.clone(),
-                    http_ctx.allowed_hosts.clone().as_deref(),
+                    http_ctx.allowed_hosts.as_deref(),
                     http_ctx.max_concurrent_requests,
                     memory,
                     ctx,
