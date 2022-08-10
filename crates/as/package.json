@@ -21,7 +21,7 @@
     "asbuild": "asc index.ts -b build/optimized.wasm --use abort=wasi_abort --debug"
   },
   "dependencies": {
-    "as-wasi": "0.4.4",
-    "assemblyscript": "^0.18.16"
+    "as-wasi": "^0.4.6",
+    "assemblyscript": "^0.20.18"
   }
 }

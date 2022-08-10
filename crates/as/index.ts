@@ -1,6 +1,6 @@
 // required to use --abort=as-wasi
 // @ts-ignore
-import { Console } from "as-wasi";
+import { Console } from "as-wasi/assembly";
 import * as raw from "./raw";
 
 /** Send an HTTP request and return an HTTP response.
