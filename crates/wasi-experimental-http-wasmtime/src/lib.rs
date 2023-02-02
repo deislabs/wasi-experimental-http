@@ -616,7 +616,7 @@ fn string_from_memory(
 fn is_allowed(url: &str, allowed_hosts: Option<&[String]>) -> Result<bool, HttpError> {
     let url_host = Url::parse(url)
         .map_err(|_| HttpError::InvalidUrl)?
-        .host_str()
+        .origin()
         .ok_or(HttpError::InvalidUrl)?
         .to_owned();
     match allowed_hosts {
