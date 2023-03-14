@@ -81,7 +81,6 @@ fn create_instance(
 ) -> Result<(Instance, Store<WasmtimeHttpCtx>), Error> {
     let mut wasmtime_config = wasmtime::Config::default();
     wasmtime_config.wasm_multi_memory(true);
-    wasmtime_config.wasm_module_linking(true);
     let engine = Engine::new(&wasmtime_config)?;
     let mut linker = Linker::new(&engine);
 
